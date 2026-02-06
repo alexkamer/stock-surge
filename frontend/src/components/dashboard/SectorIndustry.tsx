@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { stockApi } from "../../api/endpoints/stocks";
 import { formatPercent, formatCompactCurrency } from "../../lib/formatters";
 import { generateIndustryColors } from "../../lib/chartColors";
@@ -44,6 +45,7 @@ const INDUSTRY_KEY_MAP: Record<string, string> = {
 };
 
 export const SectorIndustry: React.FC = () => {
+  const navigate = useNavigate();
   const [selectedSector, setSelectedSector] = useState("technology");
   const [viewMode, setViewMode] = useState<"sector" | "industry">("sector");
   const [selectedIndustry, setSelectedIndustry] = useState<string | null>(null);
@@ -126,6 +128,47 @@ export const SectorIndustry: React.FC = () => {
   const handleIndustryClick = (industryKey: string) => {
     setSelectedIndustry(industryKey);
     setViewMode("industry");
+  };
+
+  // Helper function to get ticker from company
+  const getCompanyTicker = (company: any): string | null => {
+    // Priority: symbol > ticker > extract from name
+    if (company.symbol) return company.symbol;
+    if (company.ticker) return company.ticker;
+
+    // Common ticker extraction map
+    const tickerMap: Record<string, string> = {
+      "NVIDIA Corporation": "NVDA",
+      "Apple Inc.": "AAPL",
+      "Microsoft Corporation": "MSFT",
+      "Broadcom Inc.": "AVGO",
+      "Micron Technology, Inc.": "MU",
+      "Oracle Corporation": "ORCL",
+      "Cisco Systems, Inc.": "CSCO",
+      "Advanced Micro Devices, Inc.": "AMD",
+      "Palantir Technologies Inc.": "PLTR",
+      "International Business Machines Corporation": "IBM",
+      "Lam Research Corporation": "LRCX",
+      "Applied Materials, Inc.": "AMAT",
+      "Intel Corporation": "INTC",
+      "Texas Instruments Incorporated": "TXN",
+      "Salesforce, Inc.": "CRM",
+      "KLA Corporation": "KLAC",
+      "Arista Networks, Inc.": "ANET",
+      "Analog Devices, Inc.": "ADI",
+      "Uber Technologies, Inc.": "UBER",
+      "Amphenol Corporation": "APH",
+    };
+
+    return tickerMap[company.name] || null;
+  };
+
+  // Handle company click in table
+  const handleCompanyClick = (company: any) => {
+    const ticker = getCompanyTicker(company);
+    if (ticker) {
+      navigate(`/stock/${ticker}`);
+    }
   };
 
   // Get unique ratings from companies
@@ -278,7 +321,8 @@ export const SectorIndustry: React.FC = () => {
                     {(showAllCompanies ? filteredCompanies : filteredCompanies.slice(0, 10)).map((company: any, idx: number) => (
                       <tr
                         key={idx}
-                        className="border-b border-border/50 hover:bg-background transition-colors"
+                        onClick={() => handleCompanyClick(company)}
+                        className="border-b border-border/50 hover:bg-background transition-colors cursor-pointer"
                       >
                         <td className="py-3 px-2">
                           <span className="text-sm font-bold text-text-secondary">
@@ -329,7 +373,10 @@ export const SectorIndustry: React.FC = () => {
 
           {/* Treemap View */}
           {companiesViewType === "treemap" && (
-            <CompaniesTreemap companies={(ratingFilter === "all" ? sectorData.top_companies : filteredCompanies) as any} />
+            <CompaniesTreemap
+              companies={(ratingFilter === "all" ? sectorData.top_companies : filteredCompanies) as any}
+              onCompanyClick={handleCompanyClick}
+            />
           )}
         </div>
 

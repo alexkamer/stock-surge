@@ -11,9 +11,10 @@ interface Company {
 
 interface CompaniesTreemapProps {
   companies: Company[];
+  onCompanyClick?: (company: Company) => void;
 }
 
-export const CompaniesTreemap: React.FC<CompaniesTreemapProps> = ({ companies }) => {
+export const CompaniesTreemap: React.FC<CompaniesTreemapProps> = ({ companies, onCompanyClick }) => {
   // Helper function to extract ticker from company name
   const extractTicker = (companyName: string): string => {
     // Common patterns for extracting tickers from full company names
@@ -64,12 +65,13 @@ export const CompaniesTreemap: React.FC<CompaniesTreemapProps> = ({ companies })
         size: weight * 100,
         rating: company.rating,
         fill: `hsl(${hue}, ${saturation}%, ${lightness}%)`,
+        company: company, // Store original company object for click handler
       };
     });
 
   // Custom content renderer for treemap cells
   const CustomizedContent = (props: any) => {
-    const { x, y, width, height, ticker, size, fill } = props;
+    const { x, y, width, height, ticker, size, fill, company } = props;
 
     // Safety check
     if (!ticker || size === undefined || size === null) return null;
@@ -82,8 +84,15 @@ export const CompaniesTreemap: React.FC<CompaniesTreemapProps> = ({ companies })
     const primaryTextColor = "#000000";
     const secondaryTextColor = "#333333";
 
+    // Handle click on the rectangle
+    const handleClick = () => {
+      if (onCompanyClick && company) {
+        onCompanyClick(company);
+      }
+    };
+
     return (
-      <g>
+      <g onClick={handleClick} style={{ cursor: "pointer" }}>
         <rect
           x={x}
           y={y}
@@ -93,7 +102,6 @@ export const CompaniesTreemap: React.FC<CompaniesTreemapProps> = ({ companies })
             fill,
             stroke: "#1A1A1A",
             strokeWidth: 2,
-            cursor: "pointer",
           }}
           className="hover:opacity-80 transition-opacity"
         />
@@ -107,6 +115,7 @@ export const CompaniesTreemap: React.FC<CompaniesTreemapProps> = ({ companies })
               fontSize={showFullText ? 14 : 12}
               fontWeight="700"
               fontFamily="monospace"
+              style={{ pointerEvents: "none" }}
             >
               {ticker}
             </text>
@@ -118,6 +127,7 @@ export const CompaniesTreemap: React.FC<CompaniesTreemapProps> = ({ companies })
                 fill={secondaryTextColor}
                 fontSize={11}
                 fontFamily="monospace"
+                style={{ pointerEvents: "none" }}
               >
                 {(size || 0).toFixed(2)}%
               </text>

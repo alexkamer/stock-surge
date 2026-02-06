@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { stockApi } from "../../api/endpoints/stocks";
-import { formatCurrency, formatPercent } from "../../lib/formatters";
+import { formatCurrency, formatPercent, formatCompactCurrency } from "../../lib/formatters";
 import { generateIndustryColors } from "../../lib/chartColors";
 import { IndustryPieChart } from "./IndustryPieChart";
 import { IndustrySearchableList } from "./IndustrySearchableList";
@@ -168,22 +168,22 @@ export const SectorIndustry: React.FC = () => {
           <h3 className="text-lg font-semibold mb-3">{sectorData.name} Sector</h3>
           <p className="text-sm text-text-secondary mb-4">{sectorData.overview.description}</p>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="min-w-0">
               <p className="text-xs text-text-secondary mb-1">Companies</p>
-              <p className="text-xl font-bold">{sectorData.overview.companies_count.toLocaleString()}</p>
+              <p className="text-xl font-bold truncate">{sectorData.overview.companies_count.toLocaleString()}</p>
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-xs text-text-secondary mb-1">Market Cap</p>
-              <p className="text-xl font-bold">{formatCurrency(sectorData.overview.market_cap)}</p>
+              <p className="text-xl font-bold truncate">{formatCompactCurrency(sectorData.overview.market_cap)}</p>
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-xs text-text-secondary mb-1">Market Weight</p>
-              <p className="text-xl font-bold">{formatPercent(sectorData.overview.market_weight * 100)}</p>
+              <p className="text-xl font-bold truncate">{formatPercent(sectorData.overview.market_weight * 100)}</p>
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-xs text-text-secondary mb-1">Employees</p>
-              <p className="text-xl font-bold">{sectorData.overview.employee_count.toLocaleString()}</p>
+              <p className="text-xl font-bold truncate">{sectorData.overview.employee_count.toLocaleString()}</p>
             </div>
           </div>
         </div>
@@ -482,22 +482,22 @@ export const SectorIndustry: React.FC = () => {
 
           <p className="text-sm text-text-secondary mb-4">{industryData.overview.description}</p>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="min-w-0">
               <p className="text-xs text-text-secondary mb-1">Companies</p>
-              <p className="text-xl font-bold">{industryData.overview.companies_count.toLocaleString()}</p>
+              <p className="text-xl font-bold truncate">{industryData.overview.companies_count.toLocaleString()}</p>
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-xs text-text-secondary mb-1">Market Cap</p>
-              <p className="text-xl font-bold">{formatCurrency(industryData.overview.market_cap)}</p>
+              <p className="text-xl font-bold truncate">{formatCompactCurrency(industryData.overview.market_cap)}</p>
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-xs text-text-secondary mb-1">Market Weight</p>
-              <p className="text-xl font-bold">{formatPercent(industryData.overview.market_weight * 100)}</p>
+              <p className="text-xl font-bold truncate">{formatPercent(industryData.overview.market_weight * 100)}</p>
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-xs text-text-secondary mb-1">Employees</p>
-              <p className="text-xl font-bold">{industryData.overview.employee_count.toLocaleString()}</p>
+              <p className="text-xl font-bold truncate">{industryData.overview.employee_count.toLocaleString()}</p>
             </div>
           </div>
         </div>

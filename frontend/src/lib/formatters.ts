@@ -24,6 +24,20 @@ export function formatLargeNumber(value: number): string {
 }
 
 /**
+ * Format currency with abbreviations for large numbers (M, B, T)
+ */
+export function formatCompactCurrency(value: number): string {
+  const absValue = Math.abs(value);
+  const sign = value < 0 ? "-" : "";
+
+  if (absValue >= 1e12) return `${sign}$${(absValue / 1e12).toFixed(2)}T`;
+  if (absValue >= 1e9) return `${sign}$${(absValue / 1e9).toFixed(2)}B`;
+  if (absValue >= 1e6) return `${sign}$${(absValue / 1e6).toFixed(2)}M`;
+  if (absValue >= 1e3) return `${sign}$${(absValue / 1e3).toFixed(2)}K`;
+  return `${sign}$${absValue.toFixed(2)}`;
+}
+
+/**
  * Format a percentage
  */
 export function formatPercent(value: number, decimals: number = 2): string {

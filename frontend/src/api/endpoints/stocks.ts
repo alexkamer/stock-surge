@@ -171,4 +171,9 @@ export const stockApi = {
     const response = await apiClient.get(`/stock/${ticker}/financials/${statementType}`);
     return response.data;
   },
+
+  getAnalystPriceTargets: async (ticker: string) => {
+    const response = await apiClient.get(`/stock/${ticker}/analyst-price-targets`);
+    return response.data.data; // Unwrap the nested data
+  },
 };

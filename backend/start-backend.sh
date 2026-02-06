@@ -9,5 +9,11 @@ echo ""
 echo "Press Ctrl+C to stop"
 echo ""
 
-cd /Users/alexkamer/stock-surge
-uv run python main.py
+# Change to backend directory
+cd "$(dirname "$0")"
+
+# Activate the main venv (in parent directory)
+source ../.venv/bin/activate
+
+# Run the backend using uvicorn
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000

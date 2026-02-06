@@ -4,7 +4,7 @@ SQLAlchemy ORM models for database tables
 
 from sqlalchemy import Column, String, Integer, ForeignKey, JSON, DateTime, UUID as SQLUUID
 from sqlalchemy.sql import func
-from database import Base
+from .database import Base
 import uuid
 
 

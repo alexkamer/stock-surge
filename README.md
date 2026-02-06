@@ -63,11 +63,13 @@ cd stock-surge
 ### 2. Start Backend (Terminal 1)
 
 ```bash
+cd backend
+
 # Install Python dependencies
 uv sync
 
 # Start FastAPI server
-uv run python main.py
+./start-backend.sh
 ```
 
 Backend runs at: http://localhost:8000
@@ -93,6 +95,54 @@ Frontend runs at: http://localhost:5173
 2. Click "Sign up"
 3. Enter your email and password
 4. Start exploring!
+
+---
+
+## Project Structure
+
+```
+stock-surge/
+├── backend/                 # FastAPI backend
+│   ├── app/
+│   │   ├── auth/           # Authentication module
+│   │   ├── users/          # User management
+│   │   ├── stocks/         # Stock data endpoints
+│   │   ├── market/         # Market/sector/industry data
+│   │   ├── reddit/         # Reddit sentiment tracking
+│   │   ├── ws/             # WebSocket handlers
+│   │   ├── utils/          # Shared utilities
+│   │   ├── config.py       # Configuration
+│   │   ├── database.py     # Database setup
+│   │   ├── models.py       # SQLAlchemy models
+│   │   └── main.py         # FastAPI app
+│   ├── tests/              # Backend tests
+│   └── start-backend.sh    # Backend startup script
+│
+├── frontend/               # React + TypeScript frontend
+│   ├── src/
+│   │   ├── components/    # React components
+│   │   ├── services/      # API client
+│   │   ├── stores/        # Zustand state management
+│   │   └── App.tsx        # Main app component
+│   ├── package.json       # Node dependencies
+│   └── vite.config.ts     # Vite configuration
+│
+├── docs/                   # Documentation
+│   ├── api/               # API documentation
+│   ├── features/          # Feature guides
+│   ├── archive/           # Historical docs
+│   └── README.md          # Docs index
+│
+├── .venv/                  # Python virtual environment (shared)
+├── .env                    # Environment variables
+├── .python-version         # Python version
+├── pyproject.toml          # Python dependencies
+├── uv.lock                 # Dependency lock file
+├── stock_surge.db          # SQLite database
+├── README.md               # This file
+├── CHANGELOG.md            # Version history
+└── .gitignore             # Git ignore rules
+```
 
 ---
 

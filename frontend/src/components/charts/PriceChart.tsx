@@ -216,7 +216,25 @@ export const PriceChart: React.FC<PriceChartProps> = ({ ticker }) => {
       },
     });
 
+    // Fit content and set visible range to prevent blank space when zooming out
     chartRef.current.timeScale().fitContent();
+
+    // Set logical range boundaries to prevent zooming beyond data
+    if (chartData.length > 0) {
+      const minTime = chartData[0].time;
+      const maxTime = chartData[chartData.length - 1].time;
+
+      chartRef.current.timeScale().applyOptions({
+        fixLeftEdge: true,
+        fixRightEdge: true,
+      });
+
+      // Set the visible range to match the data range
+      chartRef.current.timeScale().setVisibleLogicalRange({
+        from: 0,
+        to: chartData.length - 1,
+      });
+    }
   }, [isChartReady, historyData, chartType]);
 
   if (isLoading) {

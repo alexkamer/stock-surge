@@ -16,7 +16,7 @@ from .service import (
     get_stock_price, get_stock_info, get_stock_history,
     get_stock_dividends, get_generic_stock_data
 )
-from ..config import CACHE_TTL_MEDIUM, CACHE_TTL_LONG
+from ..config import CACHE_TTL_SHORT, CACHE_TTL_MEDIUM, CACHE_TTL_LONG
 
 # Create router
 router = APIRouter(tags=["stocks"])

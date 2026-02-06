@@ -215,7 +215,7 @@ def get_generic_stock_data(ticker: str, data_type: str, cache_ttl: int = CACHE_T
     if hasattr(stock, data_type):
         data = getattr(stock, data_type)
 
-        # Handle DataFrame, Series, dict, or other types
+        # Handle DataFrame, Series, dict, list, or other types
         if isinstance(data, pd.DataFrame):
             if not data.empty:
                 # For financial statements, preserve the index (metric names) as a column
@@ -225,7 +225,7 @@ def get_generic_stock_data(ticker: str, data_type: str, cache_ttl: int = CACHE_T
                 result = []
         elif isinstance(data, pd.Series):
             result = data.to_dict() if not data.empty else {}
-        elif isinstance(data, dict):
+        elif isinstance(data, (dict, list)):
             result = data
         else:
             result = str(data)

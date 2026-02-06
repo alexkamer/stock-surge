@@ -18,6 +18,7 @@ import { MetricsGrid } from "../components/stock/MetricsGrid";
 import { CompanyInfo as CompanyInfoComponent } from "../components/stock/CompanyInfo";
 import { Financials } from "../components/stock/Financials";
 import { Analyst } from "../components/stock/Analyst";
+import { News } from "../components/stock/News";
 import { formatCurrency, formatPercent, getChangeColor } from "../lib/formatters";
 
 export const StockDetail: React.FC = () => {
@@ -172,14 +173,7 @@ export const StockDetail: React.FC = () => {
 
           {activeTab === "analyst" && <Analyst ticker={ticker} currentPrice={price} />}
 
-          {activeTab === "news" && (
-            <div className="card">
-              <h3 className="text-lg font-semibold mb-4">News</h3>
-              <p className="text-text-secondary">
-                Recent news articles will be displayed here
-              </p>
-            </div>
-          )}
+          {activeTab === "news" && <News ticker={ticker} />}
         </div>
       </div>
     </div>

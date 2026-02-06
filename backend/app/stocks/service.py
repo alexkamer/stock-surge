@@ -217,7 +217,12 @@ def get_generic_stock_data(ticker: str, data_type: str, cache_ttl: int = CACHE_T
 
         # Handle DataFrame, Series, dict, or other types
         if isinstance(data, pd.DataFrame):
-            result = data.to_dict(orient="records") if not data.empty else []
+            if not data.empty:
+                # For financial statements, preserve the index (metric names) as a column
+                df_with_index = data.reset_index()
+                result = df_with_index.to_dict(orient="records")
+            else:
+                result = []
         elif isinstance(data, pd.Series):
             result = data.to_dict() if not data.empty else {}
         elif isinstance(data, dict):

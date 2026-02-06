@@ -16,6 +16,7 @@ import { PriceChart } from "../components/charts/PriceChart";
 import { TabNavigation, type Tab } from "../components/layout/TabNavigation";
 import { MetricsGrid } from "../components/stock/MetricsGrid";
 import { CompanyInfo as CompanyInfoComponent } from "../components/stock/CompanyInfo";
+import { Financials } from "../components/stock/Financials";
 import { formatCurrency, formatPercent, getChangeColor } from "../lib/formatters";
 
 export const StockDetail: React.FC = () => {
@@ -166,15 +167,7 @@ export const StockDetail: React.FC = () => {
             </div>
           )}
 
-          {activeTab === "financials" && (
-            <div className="card">
-              <h3 className="text-lg font-semibold mb-4">Financials</h3>
-              <p className="text-text-secondary">
-                Financial statements will be displayed here (Income Statement, Balance
-                Sheet, Cash Flow)
-              </p>
-            </div>
-          )}
+          {activeTab === "financials" && <Financials ticker={ticker} />}
 
           {activeTab === "analyst" && (
             <div className="card">

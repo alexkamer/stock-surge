@@ -166,4 +166,9 @@ export const stockApi = {
     const response = await apiClient.get<IndustryResponse>(`/industry/${industryKey}`);
     return response.data;
   },
+
+  getFinancials: async (ticker: string, statementType: "income" | "balance-sheet" | "cash-flow") => {
+    const response = await apiClient.get(`/stock/${ticker}/financials/${statementType}`);
+    return response.data;
+  },
 };

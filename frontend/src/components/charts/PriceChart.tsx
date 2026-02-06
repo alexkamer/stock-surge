@@ -84,8 +84,23 @@ export const PriceChart: React.FC<PriceChartProps> = ({ ticker }) => {
       height: 500,
       timeScale: {
         borderColor: "#333333",
-        timeVisible: true,
+        timeVisible: period === "1d",
         secondsVisible: false,
+        tickMarkFormatter: (time: number) => {
+          const date = new Date(time * 1000);
+          // Show time for 1d period, otherwise show month/day
+          if (period === "1d") {
+            return date.toLocaleTimeString("en-US", {
+              hour: "numeric",
+              minute: "2-digit",
+              hour12: true,
+            });
+          }
+          return date.toLocaleDateString("en-US", {
+            month: "numeric",
+            day: "numeric",
+          });
+        },
       },
       rightPriceScale: {
         borderColor: "#333333",
@@ -216,26 +231,39 @@ export const PriceChart: React.FC<PriceChartProps> = ({ ticker }) => {
       },
     });
 
+    // Update timeScale options based on period
+    chartRef.current.timeScale().applyOptions({
+      timeVisible: period === "1d",
+      fixLeftEdge: true,
+      fixRightEdge: true,
+      tickMarkFormatter: (time: number) => {
+        const date = new Date(time * 1000);
+        // Show time for 1d period, otherwise show month/day
+        if (period === "1d") {
+          return date.toLocaleTimeString("en-US", {
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+          });
+        }
+        return date.toLocaleDateString("en-US", {
+          month: "numeric",
+          day: "numeric",
+        });
+      },
+    });
+
     // Fit content and set visible range to prevent blank space when zooming out
     chartRef.current.timeScale().fitContent();
 
-    // Set logical range boundaries to prevent zooming beyond data
+    // Set the visible range to match the data range
     if (chartData.length > 0) {
-      const minTime = chartData[0].time;
-      const maxTime = chartData[chartData.length - 1].time;
-
-      chartRef.current.timeScale().applyOptions({
-        fixLeftEdge: true,
-        fixRightEdge: true,
-      });
-
-      // Set the visible range to match the data range
       chartRef.current.timeScale().setVisibleLogicalRange({
         from: 0,
         to: chartData.length - 1,
       });
     }
-  }, [isChartReady, historyData, chartType]);
+  }, [isChartReady, historyData, chartType, period]);
 
   if (isLoading) {
     return (

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { stockApi } from "../../api/endpoints/stocks";
-import { formatCurrency, formatPercent, formatCompactCurrency } from "../../lib/formatters";
+import { formatPercent, formatCompactCurrency } from "../../lib/formatters";
 import { generateIndustryColors } from "../../lib/chartColors";
 import { IndustryPieChart } from "./IndustryPieChart";
 import { IndustrySearchableList } from "./IndustrySearchableList";

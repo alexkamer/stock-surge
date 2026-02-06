@@ -20,7 +20,7 @@ REDIS_DB = int(os.getenv("REDIS_DB", 0))
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", None)
 
 # Redis TTL settings (in seconds)
-CACHE_TTL_SHORT = 60  # 1 minute for real-time data
+CACHE_TTL_SHORT = 30  # 30 seconds for real-time data (aligns with frontend refetch interval)
 CACHE_TTL_MEDIUM = 300  # 5 minutes for frequently updated data
 CACHE_TTL_LONG = 3600  # 1 hour for static data
 

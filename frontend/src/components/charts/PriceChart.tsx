@@ -3,6 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 import {
   createChart,
   ColorType,
+  LineSeries,
+  AreaSeries,
+  CandlestickSeries,
+  HistogramSeries,
   type IChartApi,
   type ISeriesApi,
   type CandlestickData,
@@ -49,13 +53,14 @@ export const PriceChart: React.FC<PriceChartProps> = ({ ticker }) => {
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick" | "Line" | "Area"> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
+  const [containerElement, setContainerElement] = useState<HTMLDivElement | null>(null);
 
   const { chartType, period, setChartType, setPeriod } = useChartPreferencesStore();
   const [isChartReady, setIsChartReady] = useState(false);
 
   const interval = PERIOD_INTERVALS[period];
 
-  const { data: historyData, isLoading } = useQuery({
+  const { data: historyData, isLoading, error } = useQuery({
     queryKey: ["stock", "history", ticker, period, interval],
     queryFn: () => stockApi.getHistory(ticker, period, interval),
     staleTime: period === "1d" ? 60 * 1000 : 30 * 60 * 1000,
@@ -63,9 +68,10 @@ export const PriceChart: React.FC<PriceChartProps> = ({ ticker }) => {
 
   // Initialize chart
   useEffect(() => {
-    if (!chartContainerRef.current) return;
-
-    const chart = createChart(chartContainerRef.current, {
+    if (!containerElement) {
+      return;
+    }
+    const chart = createChart(containerElement, {
       layout: {
         background: { type: ColorType.Solid, color: "#0D0D0D" },
         textColor: "#B3B3B3",
@@ -74,7 +80,7 @@ export const PriceChart: React.FC<PriceChartProps> = ({ ticker }) => {
         vertLines: { color: "#1A1A1A" },
         horzLines: { color: "#1A1A1A" },
       },
-      width: chartContainerRef.current.clientWidth,
+      width: containerElement.clientWidth,
       height: 500,
       timeScale: {
         borderColor: "#333333",
@@ -122,7 +128,7 @@ export const PriceChart: React.FC<PriceChartProps> = ({ ticker }) => {
       volumeSeriesRef.current = null;
       setIsChartReady(false);
     };
-  }, []);
+  }, [containerElement]);
 
   // Update chart data and type
   useEffect(() => {
@@ -149,54 +155,50 @@ export const PriceChart: React.FC<PriceChartProps> = ({ ticker }) => {
 
     // Create appropriate series based on chart type
     if (chartType === "candlestick") {
-      const candlestickSeries = chartRef.current.addSeries({
-        type: "Candlestick",
+      const candlestickSeriesInstance = chartRef.current.addSeries(CandlestickSeries, {
         upColor: "#0ECB81",
         downColor: "#F6465D",
         borderUpColor: "#0ECB81",
         borderDownColor: "#F6465D",
         wickUpColor: "#0ECB81",
         wickDownColor: "#F6465D",
-      } as any);
-      candlestickSeries.setData(chartData as CandlestickData[]);
-      seriesRef.current = candlestickSeries as any;
+      });
+      candlestickSeriesInstance.setData(chartData as CandlestickData[]);
+      seriesRef.current = candlestickSeriesInstance as any;
     } else if (chartType === "line") {
-      const lineSeries = chartRef.current.addSeries({
-        type: "Line",
+      const lineSeriesInstance = chartRef.current.addSeries(LineSeries, {
         color: "#0ECB81",
         lineWidth: 2,
-      } as any);
+      });
       const lineData = chartData.map((d: any) => ({
         time: d.time,
         value: d.close,
       }));
-      lineSeries.setData(lineData as LineData[]);
-      seriesRef.current = lineSeries as any;
+      lineSeriesInstance.setData(lineData as LineData[]);
+      seriesRef.current = lineSeriesInstance as any;
     } else if (chartType === "area") {
-      const areaSeries = chartRef.current.addSeries({
-        type: "Area",
+      const areaSeriesInstance = chartRef.current.addSeries(AreaSeries, {
         topColor: "rgba(14, 203, 129, 0.4)",
         bottomColor: "rgba(14, 203, 129, 0.0)",
         lineColor: "#0ECB81",
         lineWidth: 2,
-      } as any);
+      });
       const areaData = chartData.map((d: any) => ({
         time: d.time,
         value: d.close,
       }));
-      areaSeries.setData(areaData as LineData[]);
-      seriesRef.current = areaSeries as any;
+      areaSeriesInstance.setData(areaData as LineData[]);
+      seriesRef.current = areaSeriesInstance as any;
     }
 
     // Add volume series
-    const volumeSeries = chartRef.current.addSeries({
-      type: "Histogram",
+    const volumeSeriesInstance = chartRef.current.addSeries(HistogramSeries, {
       color: "#26a69a",
       priceFormat: {
         type: "volume",
       },
       priceScaleId: "",
-    } as any);
+    });
 
     const volumeData = historyData.data.map((item: any) => ({
       time: new Date(item.date).getTime() / 1000,
@@ -204,10 +206,10 @@ export const PriceChart: React.FC<PriceChartProps> = ({ ticker }) => {
       color: item.close >= item.open ? "rgba(14, 203, 129, 0.3)" : "rgba(246, 70, 93, 0.3)",
     }));
 
-    volumeSeries.setData(volumeData as HistogramData[]);
-    volumeSeriesRef.current = volumeSeries as any;
+    volumeSeriesInstance.setData(volumeData as HistogramData[]);
+    volumeSeriesRef.current = volumeSeriesInstance as any;
 
-    volumeSeries.priceScale().applyOptions({
+    volumeSeriesInstance.priceScale().applyOptions({
       scaleMargins: {
         top: 0.8,
         bottom: 0,
@@ -222,6 +224,26 @@ export const PriceChart: React.FC<PriceChartProps> = ({ ticker }) => {
       <div className="card">
         <div className="h-[500px] flex items-center justify-center bg-chart-background rounded">
           <div className="text-text-secondary">Loading chart...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="card">
+        <div className="h-[500px] flex items-center justify-center bg-chart-background rounded">
+          <div className="text-negative">Error loading chart data</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!historyData?.data || historyData.data.length === 0) {
+    return (
+      <div className="card">
+        <div className="h-[500px] flex items-center justify-center bg-chart-background rounded">
+          <div className="text-text-secondary">No chart data available</div>
         </div>
       </div>
     );
@@ -271,7 +293,14 @@ export const PriceChart: React.FC<PriceChartProps> = ({ ticker }) => {
         </div>
       </div>
 
-      <div ref={chartContainerRef} className="rounded overflow-hidden" />
+      <div
+        ref={(el) => {
+          chartContainerRef.current = el;
+          setContainerElement(el);
+        }}
+        className="rounded overflow-hidden"
+        style={{ minHeight: '500px' }}
+      />
     </div>
   );
 };

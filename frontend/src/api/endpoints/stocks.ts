@@ -120,31 +120,31 @@ export interface IndustryResponse {
 export const stockApi = {
   getPrice: async (ticker: string) => {
     const response = await apiClient.get(`/stock/${ticker}/price`);
-    return response.data;
+    return response.data.data; // Unwrap the nested data
   },
 
   getInfo: async (ticker: string) => {
     const response = await apiClient.get(`/stock/${ticker}/info`);
-    return response.data;
+    return response.data.data; // Unwrap the nested data
   },
 
   getHistory: async (ticker: string, period: string = "1mo", interval: string = "1d") => {
     const response = await apiClient.get(`/stock/${ticker}/history`, {
       params: { period, interval },
     });
-    return response.data;
+    return response.data.data; // Unwrap the nested data
   },
 
   getNews: async (ticker: string, count: number = 10) => {
     const response = await apiClient.get(`/stock/${ticker}/news`, {
       params: { count },
     });
-    return response.data;
+    return response.data.data; // Unwrap the nested data
   },
 
   getRecommendations: async (ticker: string) => {
     const response = await apiClient.get(`/stock/${ticker}/recommendations`);
-    return response.data;
+    return response.data.data; // Unwrap the nested data
   },
 
   getMarketOverview: async (marketId: string = "US") => {

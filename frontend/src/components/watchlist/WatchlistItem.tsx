@@ -92,7 +92,7 @@ export const WatchlistItem: React.FC<WatchlistItemProps> = ({ ticker }) => {
         </div>
       </div>
 
-      {historyData?.data && historyData.data.length > 0 && (
+      {historyData?.data?.length > 0 && (
         <div className="mt-2">
           <MiniSparkline data={historyData.data} width={undefined} height={30} />
         </div>

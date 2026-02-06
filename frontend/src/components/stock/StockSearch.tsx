@@ -20,16 +20,17 @@ export const StockSearch: React.FC = () => {
   });
 
   const handleAddToWatchlist = () => {
-    if (data?.ticker) {
-      addTicker(data.ticker);
+    if (debouncedQuery) {
+      addTicker(debouncedQuery);
       setQuery("");
     }
   };
 
   const getPriceChange = () => {
-    if (!data?.data) return { value: 0, percent: 0 };
-    const change = data.data.last_price - data.data.previous_close;
-    const percent = (change / data.data.previous_close) * 100;
+    if (!data) return { value: 0, percent: 0 };
+    const change = data.last_price - data.previous_close;
+    const previousClose = data.previous_close > 0 ? data.previous_close : 1; // Prevent division by zero
+    const percent = (change / previousClose) * 100;
     return { value: change, percent };
   };
 
@@ -64,22 +65,22 @@ export const StockSearch: React.FC = () => {
       {data && (
         <div
           className="p-4 bg-surface border border-border rounded-md hover:border-positive cursor-pointer transition"
-          onClick={() => navigate(`/stock/${data.ticker}`)}
+          onClick={() => navigate(`/stock/${debouncedQuery}`)}
         >
           <div className="flex justify-between items-start">
             <div className="flex-1">
               <div className="flex items-center gap-3">
-                <h3 className="text-xl font-semibold">{data.ticker}</h3>
+                <h3 className="text-xl font-semibold">{debouncedQuery}</h3>
                 <span className="text-xs text-text-secondary px-2 py-1 bg-background rounded">
-                  {data.data.exchange}
+                  {data.exchange}
                 </span>
               </div>
-              <p className="text-sm text-text-secondary mt-1">{data.data.currency}</p>
+              <p className="text-sm text-text-secondary mt-1">{data.currency}</p>
             </div>
 
             <div className="text-right">
               <p className="text-3xl font-mono font-bold">
-                ${data.data.last_price.toFixed(2)}
+                ${data.last_price.toFixed(2)}
               </p>
               {priceChange && (
                 <p className={`text-sm font-mono ${isPositive ? 'text-positive' : 'text-negative'}`}>
@@ -92,19 +93,19 @@ export const StockSearch: React.FC = () => {
           <div className="grid grid-cols-4 gap-4 mt-4 pt-4 border-t border-border">
             <div>
               <p className="text-xs text-text-secondary">Open</p>
-              <p className="font-mono font-semibold">${data.data.open.toFixed(2)}</p>
+              <p className="font-mono font-semibold">${data.open.toFixed(2)}</p>
             </div>
             <div>
               <p className="text-xs text-text-secondary">High</p>
-              <p className="font-mono font-semibold text-positive">${data.data.day_high.toFixed(2)}</p>
+              <p className="font-mono font-semibold text-positive">${data.day_high.toFixed(2)}</p>
             </div>
             <div>
               <p className="text-xs text-text-secondary">Low</p>
-              <p className="font-mono font-semibold text-negative">${data.data.day_low.toFixed(2)}</p>
+              <p className="font-mono font-semibold text-negative">${data.day_low.toFixed(2)}</p>
             </div>
             <div>
               <p className="text-xs text-text-secondary">Volume</p>
-              <p className="font-mono font-semibold">{(data.data.volume / 1000000).toFixed(1)}M</p>
+              <p className="font-mono font-semibold">{(data.volume / 1000000).toFixed(1)}M</p>
             </div>
           </div>
 
@@ -114,15 +115,15 @@ export const StockSearch: React.FC = () => {
                 e.stopPropagation();
                 handleAddToWatchlist();
               }}
-              disabled={hasTicker(data.ticker)}
+              disabled={hasTicker(debouncedQuery)}
               className="py-2 px-4 bg-surface border border-positive text-positive hover:bg-positive hover:text-background font-semibold rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition"
             >
-              {hasTicker(data.ticker) ? 'In Watchlist' : 'Add to Watchlist'}
+              {hasTicker(debouncedQuery) ? 'In Watchlist' : 'Add to Watchlist'}
             </button>
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                navigate(`/stock/${data.ticker}`);
+                navigate(`/stock/${debouncedQuery}`);
               }}
               className="py-2 px-4 bg-positive hover:bg-positive/90 text-background font-semibold rounded-md transition"
             >

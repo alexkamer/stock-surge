@@ -1,0 +1,103 @@
+@import "tailwindcss";
+
+@theme {
+  /* Color palette */
+  --color-background: #121212;
+  --color-surface: #1A1A1A;
+  --color-border: #333333;
+  --color-text-primary: #F2F2F2;
+  --color-text-secondary: #B3B3B3;
+  --color-positive: #0ECB81;
+  --color-negative: #F6465D;
+  --color-primary: #0ECB81;
+  --color-chart-background: #0D0D0D;
+
+  /* Font families */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Roboto Mono', monospace;
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  margin: 0;
+  min-height: 100vh;
+}
+
+/* Utility classes */
+.bg-background { background-color: var(--color-background); }
+.bg-surface { background-color: var(--color-surface); }
+.bg-positive { background-color: var(--color-positive); }
+.bg-negative { background-color: var(--color-negative); }
+.bg-primary { background-color: var(--color-primary); }
+
+.text-text-primary { color: var(--color-text-primary); }
+.text-text-secondary { color: var(--color-text-secondary); }
+.text-positive { color: var(--color-positive); }
+.text-negative { color: var(--color-negative); }
+.text-primary { color: var(--color-primary); }
+
+.border-border { border-color: var(--color-border); }
+
+.font-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Component classes */
+.card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.metric-label {
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.metric-value {
+  color: var(--color-text-primary);
+  font-size: 1.5rem;
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.positive {
+  color: var(--color-positive);
+}
+
+.negative {
+  color: var(--color-negative);
+}
+
+/* Custom scrollbar for lists */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: var(--color-border);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #444444;
+}

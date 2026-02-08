@@ -16,6 +16,7 @@ from .service import (
     get_stock_price, get_stock_info, get_stock_history,
     get_stock_dividends, get_generic_stock_data
 )
+from .article_scraper import article_scraper
 from ..config import CACHE_TTL_SHORT, CACHE_TTL_MEDIUM, CACHE_TTL_LONG
 
 # Create router
@@ -235,6 +236,20 @@ async def get_news(request: Request, ticker: str):
         return {"ticker": ticker, **result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/article/scrape")
+@limiter.limit("20/minute")
+async def scrape_article(request: Request, url: str):
+    """Scrape article content from a URL"""
+    if not url:
+        raise HTTPException(status_code=400, detail="URL parameter is required")
+
+    try:
+        result = await article_scraper.scrape_article(url)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error scraping article: {str(e)}")
 
 
 @router.get("/stock/{ticker}/calendar")

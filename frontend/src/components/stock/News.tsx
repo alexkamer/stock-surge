@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Newspaper, ExternalLink, Clock } from "lucide-react";
-import { stockApi } from "../../api/endpoints/stocks";
+import { Newspaper, ExternalLink, Clock, BookOpen } from "lucide-react";
+import { stockApi, type ArticleContent } from "../../api/endpoints/stocks";
 import { formatDate } from "../../lib/formatters";
+import { ArticleModal } from "../modals/ArticleModal";
 
 interface NewsProps {
   ticker: string;
@@ -33,6 +34,11 @@ interface NewsArticle {
 }
 
 export const News: React.FC<NewsProps> = ({ ticker }) => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedArticleUrl, setSelectedArticleUrl] = useState<string>("");
+  const [scrapedArticle, setScrapedArticle] = useState<ArticleContent | null>(null);
+  const [isScrapingArticle, setIsScrapingArticle] = useState(false);
+
   const { data: news, isLoading, error } = useQuery({
     queryKey: ["news", ticker],
     queryFn: async () => {
@@ -42,6 +48,32 @@ export const News: React.FC<NewsProps> = ({ ticker }) => {
     enabled: !!ticker,
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
+
+  const handleReadArticle = async (url: string) => {
+    setSelectedArticleUrl(url);
+    setIsModalOpen(true);
+    setIsScrapingArticle(true);
+    setScrapedArticle(null);
+
+    try {
+      const article = await stockApi.scrapeArticle(url);
+      setScrapedArticle(article);
+    } catch (error) {
+      setScrapedArticle({
+        success: false,
+        url,
+        error: "Failed to load article content",
+      });
+    } finally {
+      setIsScrapingArticle(false);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedArticleUrl("");
+    setScrapedArticle(null);
+  };
 
   const getArticleUrl = (article: NewsArticle) => {
     return article.content.clickThroughUrl?.url || article.content.canonicalUrl?.url || "#";
@@ -122,12 +154,9 @@ export const News: React.FC<NewsProps> = ({ ticker }) => {
             const articleUrl = getArticleUrl(article);
 
             return (
-              <a
+              <div
                 key={article.id}
-                href={articleUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="card hover:border-accent transition-all duration-200 block group"
+                className="card hover:border-accent transition-all duration-200 group"
               >
                 <div className="flex gap-4">
                   {/* Thumbnail */}
@@ -136,7 +165,7 @@ export const News: React.FC<NewsProps> = ({ ticker }) => {
                       <img
                         src={thumbnailUrl}
                         alt={article.content.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                        className="w-full h-full object-cover"
                         loading="lazy"
                       />
                     </div>
@@ -144,7 +173,7 @@ export const News: React.FC<NewsProps> = ({ ticker }) => {
 
                   {/* Content */}
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-semibold text-text-primary mb-2 group-hover:text-accent transition-colors line-clamp-2">
+                    <h4 className="font-semibold text-text-primary mb-2 line-clamp-2">
                       {article.content.title}
                     </h4>
 
@@ -154,26 +183,54 @@ export const News: React.FC<NewsProps> = ({ ticker }) => {
                       </p>
                     )}
 
-                    <div className="flex items-center gap-4 text-xs text-text-secondary">
-                      <span className="font-medium">
-                        {article.content.provider.displayName}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock size={12} />
-                        {formatTimeAgo(article.content.pubDate)}
-                      </span>
-                      <span className="flex items-center gap-1 text-accent opacity-0 group-hover:opacity-100 transition-opacity">
-                        <ExternalLink size={12} />
-                        Read more
-                      </span>
+                    <div className="flex items-center justify-between gap-4">
+                      {/* Metadata */}
+                      <div className="flex items-center gap-4 text-xs text-text-secondary">
+                        <span className="font-medium">
+                          {article.content.provider.displayName}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock size={12} />
+                          {formatTimeAgo(article.content.pubDate)}
+                        </span>
+                      </div>
+
+                      {/* Action buttons */}
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleReadArticle(articleUrl)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-accent text-background rounded hover:bg-accent/90 transition-colors font-medium"
+                        >
+                          <BookOpen size={14} />
+                          Read Here
+                        </button>
+                        <a
+                          href={articleUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border text-text-secondary rounded hover:bg-surface hover:text-text-primary transition-colors"
+                        >
+                          <ExternalLink size={14} />
+                          Original
+                        </a>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </a>
+              </div>
             );
           })}
         </div>
       )}
+
+      {/* Article Modal */}
+      <ArticleModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        article={scrapedArticle}
+        isLoading={isScrapingArticle}
+        originalUrl={selectedArticleUrl}
+      />
 
       {/* Disclaimer */}
       {!isLoading && !error && news && news.length > 0 && (

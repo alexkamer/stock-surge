@@ -39,10 +39,24 @@ export interface CompanyInfo {
   market_cap?: number;
   pe_ratio?: number;
   forward_pe?: number;
+  peg_ratio?: number;
+  price_to_book?: number;
+  price_to_sales?: number;
   dividend_yield?: number;
   beta?: number;
   fifty_two_week_high?: number;
   fifty_two_week_low?: number;
+  trailing_eps?: number;
+  forward_eps?: number;
+  profit_margin?: number;
+  operating_margin?: number;
+  return_on_equity?: number;
+  return_on_assets?: number;
+  debt_to_equity?: number;
+  current_ratio?: number;
+  quick_ratio?: number;
+  revenue?: number;
+  revenue_per_share?: number;
   employees?: number;
   country?: string;
   city?: string;
@@ -117,6 +131,30 @@ export interface IndustryResponse {
   cached: boolean;
 }
 
+export interface DividendData {
+  date: string;
+  amount: number;
+}
+
+export interface DividendsResponse {
+  ticker: string;
+  dividends: DividendData[];
+  frequency?: string;
+  yield?: number;
+  last_payment?: DividendData;
+}
+
+export interface ArticleContent {
+  success: boolean;
+  url: string;
+  title?: string;
+  author?: string;
+  publish_date?: string;
+  content?: string;
+  word_count?: number;
+  error?: string;
+}
+
 export const stockApi = {
   getPrice: async (ticker: string) => {
     const response = await apiClient.get(`/stock/${ticker}/price`);
@@ -175,5 +213,17 @@ export const stockApi = {
   getAnalystPriceTargets: async (ticker: string) => {
     const response = await apiClient.get(`/stock/${ticker}/analyst-price-targets`);
     return response.data.data; // Unwrap the nested data
+  },
+
+  getDividends: async (ticker: string) => {
+    const response = await apiClient.get(`/stock/${ticker}/dividends`);
+    return response.data.data; // Unwrap the nested data
+  },
+
+  scrapeArticle: async (url: string): Promise<ArticleContent> => {
+    const response = await apiClient.get<ArticleContent>("/article/scrape", {
+      params: { url },
+    });
+    return response.data;
   },
 };

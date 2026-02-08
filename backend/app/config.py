@@ -53,3 +53,7 @@ YFINANCE_TIMEOUT = 10
 APP_NAME = "Stock Surge API"
 APP_VERSION = "1.0.0"
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
+
+# Article Scraper Settings
+ARTICLE_SCRAPER_USE_JS = os.getenv("ARTICLE_SCRAPER_USE_JS", "True").lower() == "true"
+ARTICLE_SCRAPER_TIMEOUT = int(os.getenv("ARTICLE_SCRAPER_TIMEOUT", "15"))

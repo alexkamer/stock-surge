@@ -19,7 +19,12 @@ import { CompanyInfo as CompanyInfoComponent } from "../components/stock/Company
 import { Financials } from "../components/stock/Financials";
 import { Analyst } from "../components/stock/Analyst";
 import { News } from "../components/stock/News";
+import { RangeVisualizer } from "../components/stock/RangeVisualizer";
+import { QuickStats } from "../components/stock/QuickStats";
+import { DividendCard } from "../components/stock/DividendCard";
 import { formatCurrency, formatPercent, getChangeColor } from "../lib/formatters";
+import { useWebSocketPrice } from "../hooks/useWebSocketPrice";
+import { Header } from "../components/layout/Header";
 
 export const StockDetail: React.FC = () => {
   const { ticker } = useParams<{ ticker: string }>();
@@ -29,10 +34,19 @@ export const StockDetail: React.FC = () => {
   const { addTicker, removeTicker, hasTicker } = useWatchlistStore();
   const isInWatchlist = ticker ? hasTicker(ticker) : false;
 
+  // WebSocket for real-time price updates
+  const {
+    price: wsPrice,
+    change: wsChange,
+    changePercent: wsChangePercent,
+    isLive,
+  } = useWebSocketPrice(ticker || '');
+
+  // Fallback to regular API query
   const { data: priceData, isLoading: priceLoading } = useQuery<PriceData>({
     queryKey: ["stock", "price", ticker],
     queryFn: () => stockApi.getPrice(ticker!),
-    enabled: !!ticker,
+    enabled: !!ticker && !isLive, // Only fetch if WebSocket is not live
     staleTime: 30 * 1000,
     refetchInterval: 30 * 1000,
   });
@@ -75,15 +89,23 @@ export const StockDetail: React.FC = () => {
     }
   };
 
-  const price = priceData?.last_price ?? 0;
+  // Use WebSocket data if available, otherwise fall back to API data
+  const price = wsPrice ?? priceData?.last_price ?? 0;
   const previousClose = priceData?.previous_close ?? price;
-  const change = price - previousClose;
-  const changePercent = previousClose !== 0 ? (change / previousClose) * 100 : 0;
+  const change = wsChange ?? (price - previousClose);
+  const changePercent = wsChangePercent ?? (previousClose !== 0 ? (change / previousClose) * 100 : 0);
 
   const isLoading = priceLoading || infoLoading;
 
+  // Calculate 52-week change percentage
+  const fiftyTwoWeekLow = infoData?.fifty_two_week_low ?? 0;
+  const fiftyTwoWeekChange = fiftyTwoWeekLow !== 0
+    ? ((price - fiftyTwoWeekLow) / fiftyTwoWeekLow) * 100
+    : 0;
+
   return (
     <div className="min-h-screen bg-background">
+      <Header />
       <div className="max-w-7xl mx-auto p-4 md:p-8">
         {/* Header */}
         <div className="mb-6">
@@ -115,6 +137,12 @@ export const StockDetail: React.FC = () => {
                     {change >= 0 ? "+" : ""}
                     {formatCurrency(change)} ({formatPercent(changePercent)})
                   </span>
+                  {isLive && (
+                    <span className="flex items-center gap-1.5 px-2.5 py-1 bg-positive/10 text-positive rounded-full text-xs font-medium">
+                      <span className="w-2 h-2 bg-positive rounded-full animate-pulse" />
+                      Live
+                    </span>
+                  )}
                 </div>
               )}
             </div>
@@ -145,6 +173,29 @@ export const StockDetail: React.FC = () => {
           </div>
         </div>
 
+        {/* 52-Week Range Visualizer */}
+        {infoData && priceData && (
+          <div className="mb-6 card p-6">
+            <RangeVisualizer
+              high={infoData.fifty_two_week_high ?? price}
+              low={infoData.fifty_two_week_low ?? price}
+              current={price}
+              previousClose={previousClose}
+            />
+          </div>
+        )}
+
+        {/* Quick Stats Bar */}
+        {priceData && infoData && (
+          <QuickStats
+            dayLow={priceData.day_low}
+            dayHigh={priceData.day_high}
+            fiftyTwoWeekChange={fiftyTwoWeekChange}
+            avgVolume={priceData.volume}
+            nextEarningsDate={undefined} // TODO: Add earnings endpoint
+          />
+        )}
+
         {/* Price Chart */}
         <div className="mb-6">
           <PriceChart ticker={ticker} />
@@ -161,6 +212,14 @@ export const StockDetail: React.FC = () => {
         <div className="mt-6">
           {activeTab === "overview" && (
             <div className="space-y-6">
+              {/* Dividend Card - only shows if stock pays dividends */}
+              {infoData && (
+                <DividendCard
+                  ticker={ticker}
+                  currentYield={infoData.dividend_yield ? infoData.dividend_yield * 100 : undefined}
+                />
+              )}
+
               {priceData && infoData && (
                 <MetricsGrid info={infoData} priceData={priceData} />
               )}

@@ -199,7 +199,7 @@ export const News: React.FC<NewsProps> = ({ ticker }) => {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleReadArticle(articleUrl)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-accent text-background rounded hover:bg-accent/90 transition-colors font-medium"
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border text-text-primary rounded hover:bg-surface hover:border-accent transition-colors cursor-pointer"
                         >
                           <BookOpen size={14} />
                           Read Here
@@ -208,7 +208,7 @@ export const News: React.FC<NewsProps> = ({ ticker }) => {
                           href={articleUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border text-text-secondary rounded hover:bg-surface hover:text-text-primary transition-colors"
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border text-text-primary rounded hover:bg-surface hover:border-accent transition-colors"
                         >
                           <ExternalLink size={14} />
                           Original

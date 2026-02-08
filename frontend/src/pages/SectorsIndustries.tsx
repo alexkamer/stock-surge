@@ -65,6 +65,7 @@ export const SectorsIndustries: React.FC = () => {
   const [companySortOrder, setCompanySortOrder] = useState<"asc" | "desc">("desc");
   const [performancePeriod, setPerformancePeriod] = useState<string>("1mo");
   const [expandedReports, setExpandedReports] = useState<Set<string>>(new Set());
+  const [industryCompaniesViewType, setIndustryCompaniesViewType] = useState<"table" | "treemap">("table");
 
   // Initialize from URL parameters
   useEffect(() => {
@@ -824,18 +825,47 @@ export const SectorsIndustries: React.FC = () => {
         {/* All Companies Table */}
         {industryData.top_companies && industryData.top_companies.length > 0 && (
           <div className="card p-5">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-4">
-              <div className="flex items-center gap-2">
-                <Building2 className="w-5 h-5 text-primary" />
-                <h3 className="text-lg font-semibold">Top Companies by Market Weight</h3>
+            <div className="flex flex-col gap-3 mb-4">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <Building2 className="w-5 h-5 text-primary" />
+                  <h3 className="text-lg font-semibold">Top Companies by Market Weight</h3>
+                </div>
+
+                {/* View Toggle Buttons */}
+                <div className="flex gap-1 bg-background rounded-lg p-1">
+                  <button
+                    onClick={() => setIndustryCompaniesViewType("table")}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium transition-all ${
+                      industryCompaniesViewType === "table"
+                        ? "bg-surface text-text-primary shadow-sm"
+                        : "text-text-secondary hover:text-text-primary"
+                    }`}
+                  >
+                    <TableIcon className="w-4 h-4" />
+                    Table
+                  </button>
+                  <button
+                    onClick={() => setIndustryCompaniesViewType("treemap")}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium transition-all ${
+                      industryCompaniesViewType === "treemap"
+                        ? "bg-surface text-text-primary shadow-sm"
+                        : "text-text-secondary hover:text-text-primary"
+                    }`}
+                  >
+                    <Grid3x3 className="w-4 h-4" />
+                    Treemap
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center gap-2 sm:ml-auto">
+
+              <div className="flex items-center gap-2">
                 <span className="text-xs text-text-secondary">
                   Showing {sortedIndustryCompanies.length} of {industryData.overview.companies_count} total companies
                 </span>
                 <div className="group relative">
                   <Info className="w-4 h-4 text-text-secondary cursor-help" />
-                  <div className="absolute right-0 top-6 w-64 p-2 bg-surface border border-border rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                  <div className="absolute left-0 top-6 w-64 p-2 bg-surface border border-border rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
                     <p className="text-xs text-text-secondary">
                       Displaying the top companies by market capitalization. The industry contains {industryData.overview.companies_count} total companies, but only the most significant ones have detailed market data available.
                     </p>
@@ -844,8 +874,9 @@ export const SectorsIndustries: React.FC = () => {
               </div>
             </div>
 
-            {/* Filters and Sort */}
-            <div className="flex flex-col sm:flex-row gap-3 mb-4 pb-4 border-b border-border/50">
+            {/* Filters and Sort - only show for table view */}
+            {industryCompaniesViewType === "table" && (
+              <div className="flex flex-col sm:flex-row gap-3 mb-4 pb-4 border-b border-border/50">
               {/* Rating Filter */}
               {industryCompanyRatings.length > 0 && (
                 <div className="flex items-center gap-2">
@@ -913,10 +944,13 @@ export const SectorsIndustries: React.FC = () => {
                 </button>
               </div>
             </div>
+            )}
 
-            {/* Companies Table */}
-            <div className="overflow-x-auto -mx-1">
-              <table className="w-full">
+            {/* Table View */}
+            {industryCompaniesViewType === "table" && (
+              <>
+                <div className="overflow-x-auto -mx-1">
+                  <table className="w-full">
                 <thead>
                   <tr className="border-b border-border">
                     <th className="text-left text-xs font-semibold text-text-secondary uppercase tracking-wider py-3 px-3">
@@ -1057,6 +1091,16 @@ export const SectorsIndustries: React.FC = () => {
                     : `Show All ${sortedIndustryCompanies.length} Top Companies`}
                 </button>
               </div>
+            )}
+              </>
+            )}
+
+            {/* Treemap View */}
+            {industryCompaniesViewType === "treemap" && (
+              <CompaniesTreemap
+                companies={sortedIndustryCompanies as any}
+                onCompanyClick={handleCompanyClick}
+              />
             )}
           </div>
         )}

@@ -9,7 +9,7 @@ import { IndustrySearchableList } from "../components/dashboard/IndustrySearchab
 import { IndustryGridView } from "../components/dashboard/IndustryGridView";
 import { CompaniesTreemap } from "../components/dashboard/CompaniesTreemap";
 import { Header } from "../components/layout/Header";
-import { LayoutGrid, PieChart as PieChartIcon, Table as TableIcon, Grid3x3 } from "lucide-react";
+import { LayoutGrid, PieChart as PieChartIcon, Table as TableIcon, Grid3x3, Info } from "lucide-react";
 
 const POPULAR_SECTORS = [
   { key: "technology", name: "Technology" },
@@ -552,7 +552,17 @@ export const SectorsIndustries: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="card p-4">
             <div className="flex justify-between items-center mb-3">
-              <h3 className="text-lg font-semibold">Top Performing</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-semibold">Top Performing</h3>
+                <div className="group relative">
+                  <Info className="w-4 h-4 text-text-secondary cursor-help" />
+                  <div className="absolute left-0 top-6 w-64 p-2 bg-surface border border-border rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                    <p className="text-xs text-text-secondary">
+                      Companies ranked by <span className="font-semibold text-text-primary">Year-to-Date returns</span>. Shows actual stock price performance this year.
+                    </p>
+                  </div>
+                </div>
+              </div>
               <span className="text-xs text-text-secondary">
                 {showAllPerforming ? industryData.top_performing_companies.length : Math.min(5, industryData.top_performing_companies.length)} of {industryData.top_performing_companies.length}
               </span>
@@ -628,7 +638,17 @@ export const SectorsIndustries: React.FC = () => {
 
           <div className="card p-4">
             <div className="flex justify-between items-center mb-3">
-              <h3 className="text-lg font-semibold">Top Growth</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-semibold">Top Growth</h3>
+                <div className="group relative">
+                  <Info className="w-4 h-4 text-text-secondary cursor-help" />
+                  <div className="absolute left-0 top-6 w-64 p-2 bg-surface border border-border rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                    <p className="text-xs text-text-secondary">
+                      Companies ranked by <span className="font-semibold text-text-primary">expected earnings growth</span>. Forward-looking projections, not past performance.
+                    </p>
+                  </div>
+                </div>
+              </div>
               <span className="text-xs text-text-secondary">
                 {showAllGrowth ? industryData.top_growth_companies.length : Math.min(5, industryData.top_growth_companies.length)} of {industryData.top_growth_companies.length}
               </span>
@@ -667,25 +687,21 @@ export const SectorsIndustries: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-2 mt-2 pt-2 border-t border-border/30">
-                      <div>
-                        <p className="text-xs text-text-secondary mb-0.5">YTD</p>
+                    <div className="flex justify-between items-center mt-2 pt-2 border-t border-border/30">
+                      <div className="flex-1">
+                        <p className="text-xs text-text-secondary mb-0.5">YTD Return</p>
                         <p className={`text-sm font-mono font-medium ${ytdReturn !== null && ytdReturn >= 0 ? 'text-success' : ytdReturn !== null ? 'text-danger' : ''}`}>
-                          {ytdReturn !== null ? formatPercentNoSign(ytdReturn * 100) : "—"}
+                          {ytdReturn !== null ? formatPercent(ytdReturn) : "—"}
                         </p>
                       </div>
-                      <div>
-                        <p className="text-xs text-text-secondary mb-0.5">Price</p>
-                        <p className="text-sm font-mono font-medium">
-                          {lastPrice ? `$${lastPrice.toFixed(2)}` : "—"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-text-secondary mb-0.5">Upside</p>
-                        <p className={`text-sm font-mono font-medium ${upside !== null && upside >= 0 ? 'text-success' : upside !== null ? 'text-danger' : ''}`}>
-                          {upside !== null ? formatPercentNoSign(upside * 100) : "—"}
-                        </p>
-                      </div>
+                      {lastPrice && (
+                        <div className="text-right">
+                          <p className="text-xs text-text-secondary mb-0.5">Current Price</p>
+                          <p className="text-sm font-mono font-medium">
+                            ${lastPrice.toFixed(2)}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

@@ -20,6 +20,7 @@ from .users.routes import router as users_router
 from .stocks.routes import router as stocks_router
 from .market.routes import router as market_router
 from .reddit.routes import router as reddit_router
+from .ai.routes import router as ai_router
 from .ws.handlers import websocket_live_prices
 
 # Configure yfinance for optimal performance
@@ -71,6 +72,7 @@ app.include_router(users_router)
 app.include_router(stocks_router)
 app.include_router(market_router)
 app.include_router(reddit_router)
+app.include_router(ai_router)
 
 # WebSocket endpoint
 @app.websocket("/ws/live/{tickers}")

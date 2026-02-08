@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Newspaper, ExternalLink, Clock, BookOpen } from "lucide-react";
+import { Newspaper, ExternalLink, Clock, BookOpen, Sparkles, Info, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { stockApi, type ArticleContent } from "../../api/endpoints/stocks";
+import { aiApi, type ArticleSummary } from "../../api/endpoints/ai";
 import { formatDate } from "../../lib/formatters";
 import { ArticleModal } from "../modals/ArticleModal";
 
@@ -38,6 +39,8 @@ export const News: React.FC<NewsProps> = ({ ticker }) => {
   const [selectedArticleUrl, setSelectedArticleUrl] = useState<string>("");
   const [scrapedArticle, setScrapedArticle] = useState<ArticleContent | null>(null);
   const [isScrapingArticle, setIsScrapingArticle] = useState(false);
+  const [articleSummaries, setArticleSummaries] = useState<Map<string, ArticleSummary>>(new Map());
+  const [loadingSummaries, setLoadingSummaries] = useState<Set<string>>(new Set());
 
   const { data: news, isLoading, error } = useQuery({
     queryKey: ["news", ticker],
@@ -47,6 +50,14 @@ export const News: React.FC<NewsProps> = ({ ticker }) => {
     },
     enabled: !!ticker,
     staleTime: 2 * 60 * 1000, // 2 minutes
+  });
+
+  // Check Ollama availability (optional, non-blocking)
+  const { data: ollamaStatus } = useQuery({
+    queryKey: ["ollama-status"],
+    queryFn: () => aiApi.checkStatus(),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: false, // Don't retry if Ollama is not available
   });
 
   const handleReadArticle = async (url: string) => {
@@ -73,6 +84,41 @@ export const News: React.FC<NewsProps> = ({ ticker }) => {
     setIsModalOpen(false);
     setSelectedArticleUrl("");
     setScrapedArticle(null);
+  };
+
+  const handleSummarize = async (articleUrl: string) => {
+    // Check if already summarized
+    if (articleSummaries.has(articleUrl)) {
+      return;
+    }
+
+    // Add to loading set
+    setLoadingSummaries(prev => new Set(prev).add(articleUrl));
+
+    try {
+      const summary = await aiApi.summarizeArticle(articleUrl, 150);
+      setArticleSummaries(prev => new Map(prev).set(articleUrl, summary));
+    } catch (error) {
+      console.error("Failed to summarize article:", error);
+      // Create error summary
+      const errorSummary: ArticleSummary = {
+        success: false,
+        url: articleUrl,
+        title: "",
+        summary: error instanceof Error ? error.message : "Failed to generate summary. Make sure Ollama is running.",
+        word_count: 0,
+        model: "",
+        original_word_count: 0,
+      };
+      setArticleSummaries(prev => new Map(prev).set(articleUrl, errorSummary));
+    } finally {
+      // Remove from loading set
+      setLoadingSummaries(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(articleUrl);
+        return newSet;
+      });
+    }
   };
 
   const getArticleUrl = (article: NewsArticle) => {
@@ -111,6 +157,37 @@ export const News: React.FC<NewsProps> = ({ ticker }) => {
     }
   };
 
+  const getSentimentDisplay = (sentiment?: string) => {
+    switch (sentiment?.toLowerCase()) {
+      case "bullish":
+        return {
+          icon: <TrendingUp size={16} />,
+          label: "Bullish",
+          color: "text-positive",
+          bgColor: "bg-positive/10",
+          borderColor: "border-positive/20",
+        };
+      case "bearish":
+        return {
+          icon: <TrendingDown size={16} />,
+          label: "Bearish",
+          color: "text-negative",
+          bgColor: "bg-negative/10",
+          borderColor: "border-negative/20",
+        };
+      case "neutral":
+        return {
+          icon: <Minus size={16} />,
+          label: "Neutral",
+          color: "text-text-secondary",
+          bgColor: "bg-surface",
+          borderColor: "border-border",
+        };
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -124,6 +201,37 @@ export const News: React.FC<NewsProps> = ({ ticker }) => {
           </p>
         )}
       </div>
+
+      {/* Ollama AI Info Banner */}
+      {ollamaStatus?.available && news && news.length > 0 && (
+        <div className="card bg-accent/5 border-accent/30">
+          <div className="flex items-start gap-3">
+            <Sparkles size={20} className="text-accent flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm text-text-primary">
+                <span className="font-medium">AI Summaries Available</span> - Click the sparkle button
+                on any article to generate an AI-powered summary using {ollamaStatus.model}.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {ollamaStatus && !ollamaStatus.available && news && news.length > 0 && (
+        <div className="card bg-surface border-border">
+          <div className="flex items-start gap-3">
+            <Info size={20} className="text-text-secondary flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm text-text-secondary">
+                <span className="font-medium text-text-primary">AI summaries are disabled.</span>{" "}
+                Install Ollama to enable AI-powered article summaries. See{" "}
+                <code className="text-xs bg-background px-1.5 py-0.5 rounded">OLLAMA_QUICKSTART.md</code>{" "}
+                for setup instructions.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isLoading && (
         <div className="flex items-center justify-center py-12">
@@ -152,6 +260,8 @@ export const News: React.FC<NewsProps> = ({ ticker }) => {
           {news.map((article) => {
             const thumbnailUrl = getThumbnailUrl(article);
             const articleUrl = getArticleUrl(article);
+            const summary = articleSummaries.get(articleUrl);
+            const isLoadingSummary = loadingSummaries.has(articleUrl);
 
             return (
               <div
@@ -177,10 +287,58 @@ export const News: React.FC<NewsProps> = ({ ticker }) => {
                       {article.content.title}
                     </h4>
 
-                    {article.content.summary && (
+                    {article.content.summary && !summary && (
                       <p className="text-sm text-text-secondary mb-3 line-clamp-2">
                         {article.content.summary}
                       </p>
+                    )}
+
+                    {/* AI-Generated Summary */}
+                    {summary && (
+                      <div className="mb-3 p-3 bg-accent/5 border border-accent/20 rounded">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <Sparkles size={12} className="text-accent" />
+                            <span className="text-xs font-medium text-accent">AI Summary</span>
+                          </div>
+                          {summary.sentiment && getSentimentDisplay(summary.sentiment) && (
+                            <div className={`flex items-center gap-1 px-2 py-0.5 rounded ${getSentimentDisplay(summary.sentiment)!.bgColor} border ${getSentimentDisplay(summary.sentiment)!.borderColor}`}>
+                              <span className={getSentimentDisplay(summary.sentiment)!.color}>
+                                {getSentimentDisplay(summary.sentiment)!.icon}
+                              </span>
+                              <span className={`text-xs font-medium ${getSentimentDisplay(summary.sentiment)!.color}`}>
+                                {getSentimentDisplay(summary.sentiment)!.label}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-sm text-text-primary leading-relaxed">
+                          {summary.summary}
+                        </p>
+                        {summary.key_takeaway && (
+                          <div className="mt-2 pt-2 border-t border-accent/10">
+                            <p className="text-xs font-medium text-accent mb-1">Key Takeaway:</p>
+                            <p className="text-sm text-text-primary italic">
+                              {summary.key_takeaway}
+                            </p>
+                          </div>
+                        )}
+                        {summary.model && (
+                          <p className="text-xs text-text-secondary mt-2">
+                            Generated by {summary.model}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Loading Summary */}
+                    {isLoadingSummary && (
+                      <div className="mb-3 p-3 bg-surface border border-border rounded">
+                        <div className="flex items-center gap-2 text-sm text-text-secondary">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-accent"></div>
+                          Generating AI summary...
+                        </div>
+                      </div>
                     )}
 
                     <div className="flex items-center justify-between gap-4">
@@ -197,6 +355,25 @@ export const News: React.FC<NewsProps> = ({ ticker }) => {
 
                       {/* Action buttons */}
                       <div className="flex items-center gap-2">
+                        {!summary && !isLoadingSummary && (
+                          <button
+                            onClick={() => handleSummarize(articleUrl)}
+                            disabled={!ollamaStatus?.available}
+                            title={
+                              !ollamaStatus?.available
+                                ? "Ollama is not running. See docs/OLLAMA_SETUP.md"
+                                : "Generate AI summary"
+                            }
+                            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded transition-colors font-medium ${
+                              ollamaStatus?.available
+                                ? "bg-accent/10 text-accent hover:bg-accent/20 cursor-pointer"
+                                : "bg-surface text-text-secondary cursor-not-allowed opacity-50"
+                            }`}
+                          >
+                            <Sparkles size={14} />
+                            AI Summary
+                          </button>
+                        )}
                         <button
                           onClick={() => handleReadArticle(articleUrl)}
                           className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border text-text-primary rounded hover:bg-surface hover:border-accent transition-colors cursor-pointer"

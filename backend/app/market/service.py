@@ -60,8 +60,12 @@ def get_sector_data(sector_key: str) -> Dict[str, Any]:
 
     sector = yf.Sector(sector_key)
 
-    # Convert DataFrames to dicts
-    top_companies = sector.top_companies.to_dict('records') if sector.top_companies is not None and not sector.top_companies.empty else []
+    # Convert DataFrames to dicts - include the index (symbol) in the records
+    if sector.top_companies is not None and not sector.top_companies.empty:
+        top_companies = sector.top_companies.reset_index().to_dict('records')
+    else:
+        top_companies = []
+
     industries = sector.industries.to_dict('records') if sector.industries is not None and not sector.industries.empty else []
 
     # Filter out None values from ETFs and mutual funds
@@ -101,9 +105,16 @@ def get_industry_data(industry_key: str) -> Dict[str, Any]:
 
     industry = yf.Industry(industry_key)
 
-    # Convert DataFrames to dicts
-    top_performing = industry.top_performing_companies.to_dict('records') if industry.top_performing_companies is not None and not industry.top_performing_companies.empty else []
-    top_growth = industry.top_growth_companies.to_dict('records') if industry.top_growth_companies is not None and not industry.top_growth_companies.empty else []
+    # Convert DataFrames to dicts - include the index (symbol) in the records
+    if industry.top_performing_companies is not None and not industry.top_performing_companies.empty:
+        top_performing = industry.top_performing_companies.reset_index().to_dict('records')
+    else:
+        top_performing = []
+
+    if industry.top_growth_companies is not None and not industry.top_growth_companies.empty:
+        top_growth = industry.top_growth_companies.reset_index().to_dict('records')
+    else:
+        top_growth = []
 
     result = {
         "key": industry.key,

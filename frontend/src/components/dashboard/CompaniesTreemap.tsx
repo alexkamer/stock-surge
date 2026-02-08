@@ -15,35 +15,6 @@ interface CompaniesTreemapProps {
 }
 
 export const CompaniesTreemap: React.FC<CompaniesTreemapProps> = ({ companies, onCompanyClick }) => {
-  // Helper function to extract ticker from company name
-  const extractTicker = (companyName: string): string => {
-    // Common patterns for extracting tickers from full company names
-    const tickerMap: Record<string, string> = {
-      "NVIDIA Corporation": "NVDA",
-      "Apple Inc.": "AAPL",
-      "Microsoft Corporation": "MSFT",
-      "Broadcom Inc.": "AVGO",
-      "Micron Technology, Inc.": "MU",
-      "Oracle Corporation": "ORCL",
-      "Cisco Systems, Inc.": "CSCO",
-      "Advanced Micro Devices, Inc.": "AMD",
-      "Palantir Technologies Inc.": "PLTR",
-      "International Business Machines Corporation": "IBM",
-      "Lam Research Corporation": "LRCX",
-      "Applied Materials, Inc.": "AMAT",
-      "Intel Corporation": "INTC",
-      "Texas Instruments Incorporated": "TXN",
-      "Salesforce, Inc.": "CRM",
-      "KLA Corporation": "KLAC",
-      "Arista Networks, Inc.": "ANET",
-      "Analog Devices, Inc.": "ADI",
-      "Uber Technologies, Inc.": "UBER",
-      "Amphenol Corporation": "APH",
-    };
-
-    return tickerMap[companyName] || companyName;
-  };
-
   // Transform data for treemap - filter out invalid entries
   const treemapData = companies
     .slice(0, 20)
@@ -56,8 +27,8 @@ export const CompaniesTreemap: React.FC<CompaniesTreemapProps> = ({ companies, o
       const saturation = 65;
       const lightness = 70; // Consistent lightness for pastel colors
 
-      // Get ticker: use symbol/ticker field if available, otherwise extract from name
-      const displayText = company.symbol || company.ticker || extractTicker(company.name);
+      // Get ticker: use symbol/ticker field from API
+      const displayText = company.symbol || company.ticker || company.name;
 
       return {
         name: company.name,

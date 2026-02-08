@@ -94,9 +94,9 @@ export const Header: React.FC = () => {
 
             {isOpen && (query || data) && (
               <div className="absolute top-full mt-2 w-96 right-0 bg-surface border border-border rounded-md shadow-lg max-h-96 overflow-y-auto">
-                {error && (
-                  <div className="p-3 text-negative text-sm">
-                    Stock not found. Try another ticker symbol.
+                {error && !isLoading && (
+                  <div className="p-4 text-center text-text-secondary text-sm">
+                    <p>Keep typing...</p>
                   </div>
                 )}
 

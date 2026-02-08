@@ -32,16 +32,19 @@ limiter = Limiter(key_func=get_remote_address)
 async def get_current_price(request: Request, ticker: str):
     """Get current price using fast_info (optimized for speed). Cached for 30 seconds."""
     ticker = ticker.upper()
-    
+
     try:
         result = get_stock_price(ticker)
         return {"ticker": ticker, **result}
-    except yf.YFRateLimitError:
-        raise HTTPException(status_code=429, detail="Rate limit exceeded. Please try again later.", headers={"Retry-After": "60"})
-    except yf.YFTzMissingError:
-        raise HTTPException(status_code=404, detail=f"Ticker {ticker} not found or delisted")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching price: {str(e)}")
+        error_msg = str(e).lower()
+        # Check for common error patterns
+        if "rate limit" in error_msg or "429" in error_msg:
+            raise HTTPException(status_code=429, detail="Rate limit exceeded. Please try again later.", headers={"Retry-After": "60"})
+        elif "not found" in error_msg or "invalid" in error_msg or "delisted" in error_msg:
+            raise HTTPException(status_code=404, detail=f"Ticker {ticker} not found or delisted")
+        else:
+            raise HTTPException(status_code=500, detail=f"Error fetching price: {str(e)}")
 
 
 @router.get("/stock/{ticker}/info", response_model=InfoResponse)

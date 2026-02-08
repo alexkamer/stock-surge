@@ -153,7 +153,7 @@ export const Header: React.FC = () => {
               </button>
 
               {isSectorsOpen && (
-                <div className="absolute top-full left-0 pt-2 w-56 z-50">
+                <div className="absolute top-full left-0 w-56 z-50">
                   <div className="bg-surface border border-border rounded-lg shadow-lg py-1">
                     {POPULAR_SECTORS.map((sector) => (
                       <div
@@ -176,7 +176,7 @@ export const Header: React.FC = () => {
 
                         {/* Industries Submenu */}
                         {hoveredSector === sector.key && hoveredIndustries.length > 0 && (
-                          <div className="absolute left-full top-0 ml-1 w-72 bg-surface border border-border rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
+                          <div className="absolute left-full top-0 w-72 bg-surface border border-border rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
                             <div className="p-2 border-b border-border bg-background/50">
                               <p className="text-xs font-semibold text-text-secondary uppercase">
                                 {sector.name} Industries

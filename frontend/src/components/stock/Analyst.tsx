@@ -26,7 +26,7 @@ interface PriceTargetData {
   median: number;
 }
 
-export const Analyst: React.FC<AnalystProps> = ({ ticker, currentPrice }) => {
+export const Analyst: React.FC<AnalystProps> = ({ ticker }) => {
   const { data: recommendations, isLoading: recsLoading } = useQuery({
     queryKey: ["recommendations", ticker],
     queryFn: async () => {
@@ -47,7 +47,7 @@ export const Analyst: React.FC<AnalystProps> = ({ ticker, currentPrice }) => {
     staleTime: 5 * 60 * 1000,
   });
 
-  const isLoading = recsLoading || targetsLoading;
+  // const isLoading = recsLoading || targetsLoading;
 
   // Get the most recent recommendation period
   const latestRecs = recommendations && recommendations.length > 0 ? recommendations[0] : null;

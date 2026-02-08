@@ -236,21 +236,6 @@ export const PriceChart: React.FC<PriceChartProps> = ({ ticker }) => {
       timeVisible: period === "1d",
       fixLeftEdge: true,
       fixRightEdge: true,
-      tickMarkFormatter: (time: number) => {
-        const date = new Date(time * 1000);
-        // Show time for 1d period, otherwise show month/day
-        if (period === "1d") {
-          return date.toLocaleTimeString("en-US", {
-            hour: "numeric",
-            minute: "2-digit",
-            hour12: true,
-          });
-        }
-        return date.toLocaleDateString("en-US", {
-          month: "numeric",
-          day: "numeric",
-        });
-      },
     });
 
     // Fit content and set visible range to prevent blank space when zooming out

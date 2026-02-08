@@ -43,9 +43,17 @@ async def websocket_live_prices(websocket: WebSocket, tickers: str):
                     stock = yf.Ticker(ticker)
                     fast_info = stock.fast_info
 
+                    # Calculate change and change percent
+                    current_price = fast_info.last_price
+                    previous_close = fast_info.previous_close
+                    change = current_price - previous_close
+                    change_percent = (change / previous_close * 100) if previous_close != 0 else 0
+
                     message = {
                         "id": ticker,
-                        "price": fast_info.last_price,
+                        "price": current_price,
+                        "change": change,
+                        "changePercent": change_percent,
                         "currency": fast_info.currency,
                         "exchange": fast_info.exchange,
                         "market_cap": fast_info.market_cap,

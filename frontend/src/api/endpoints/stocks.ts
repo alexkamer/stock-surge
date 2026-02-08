@@ -60,6 +60,13 @@ export interface CompanyInfo {
   employees?: number;
   country?: string;
   city?: string;
+  next_earnings_date?: string;
+  free_cash_flow?: number;
+  enterprise_value?: number;
+  enterprise_to_revenue?: number;
+  enterprise_to_ebitda?: number;
+  ebitda?: number;
+  ebitda_margins?: number;
 }
 
 export interface MarketIndexData {

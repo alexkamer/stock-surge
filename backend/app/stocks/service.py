@@ -90,6 +90,15 @@ def get_stock_info(ticker: str) -> Dict[str, Any]:
     stock = yf.Ticker(ticker)
     info = stock.info
 
+    # Convert earnings timestamp to ISO format if available
+    next_earnings_date = None
+    earnings_timestamp = info.get("earningsTimestampStart")
+    if earnings_timestamp:
+        try:
+            next_earnings_date = datetime.fromtimestamp(earnings_timestamp).isoformat()
+        except (ValueError, TypeError):
+            next_earnings_date = None
+
     result = {
         "name": info.get("longName", "N/A"),
         "symbol": info.get("symbol", ticker),
@@ -100,13 +109,34 @@ def get_stock_info(ticker: str) -> Dict[str, Any]:
         "market_cap": info.get("marketCap"),
         "pe_ratio": info.get("trailingPE"),
         "forward_pe": info.get("forwardPE"),
+        "peg_ratio": info.get("pegRatio"),
+        "price_to_book": info.get("priceToBook"),
+        "price_to_sales": info.get("priceToSalesTrailing12Months"),
         "dividend_yield": info.get("dividendYield"),
         "beta": info.get("beta"),
         "fifty_two_week_high": info.get("fiftyTwoWeekHigh"),
         "fifty_two_week_low": info.get("fiftyTwoWeekLow"),
+        "trailing_eps": info.get("trailingEps"),
+        "forward_eps": info.get("forwardEps"),
+        "profit_margin": info.get("profitMargins"),
+        "operating_margin": info.get("operatingMargins"),
+        "return_on_equity": info.get("returnOnEquity"),
+        "return_on_assets": info.get("returnOnAssets"),
+        "debt_to_equity": info.get("debtToEquity"),
+        "current_ratio": info.get("currentRatio"),
+        "quick_ratio": info.get("quickRatio"),
+        "revenue": info.get("totalRevenue"),
+        "revenue_per_share": info.get("revenuePerShare"),
         "employees": info.get("fullTimeEmployees"),
         "country": info.get("country"),
         "city": info.get("city"),
+        "next_earnings_date": next_earnings_date,
+        "free_cash_flow": info.get("freeCashflow"),
+        "enterprise_value": info.get("enterpriseValue"),
+        "enterprise_to_revenue": info.get("enterpriseToRevenue"),
+        "enterprise_to_ebitda": info.get("enterpriseToEbitda"),
+        "ebitda": info.get("ebitda"),
+        "ebitda_margins": info.get("ebitdaMargins"),
     }
 
     set_cached_data(cache_key, result, CACHE_TTL_MEDIUM)
@@ -188,8 +218,20 @@ def get_stock_dividends(ticker: str) -> Dict[str, Any]:
             "amount": safe_float(amount)
         })
 
-    set_cached_data(cache_key, dividend_data, CACHE_TTL_LONG)
-    return {"data": dividend_data, "cached": False}
+    # Sort by date descending (most recent first)
+    dividend_data.sort(key=lambda x: x["date"], reverse=True)
+
+    # Get last payment
+    last_payment = dividend_data[0] if dividend_data else None
+
+    result = {
+        "dividends": dividend_data,
+        "last_payment": last_payment,
+        "frequency": "Quarterly"  # Default assumption, could be enhanced
+    }
+
+    set_cached_data(cache_key, result, CACHE_TTL_LONG)
+    return {"data": result, "cached": False}
 
 
 def get_generic_stock_data(ticker: str, data_type: str, cache_ttl: int = CACHE_TTL_MEDIUM) -> Dict[str, Any]:

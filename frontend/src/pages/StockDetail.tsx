@@ -192,7 +192,7 @@ export const StockDetail: React.FC = () => {
             dayHigh={priceData.day_high}
             fiftyTwoWeekChange={fiftyTwoWeekChange}
             avgVolume={priceData.volume}
-            nextEarningsDate={undefined} // TODO: Add earnings endpoint
+            nextEarningsDate={infoData.next_earnings_date}
           />
         )}
 

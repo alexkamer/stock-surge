@@ -74,10 +74,16 @@ class DividendData(BaseModel):
     amount: float = Field(..., json_schema_extra={"example": 0.26})
 
 
+class DividendsData(BaseModel):
+    """Dividends data container"""
+    dividends: List[DividendData]
+    last_payment: Optional[DividendData] = None
+    frequency: Optional[str] = Field(None, json_schema_extra={"example": "Quarterly"})
+
 class DividendsResponse(BaseModel):
     """Response model for dividends"""
     ticker: str = Field(..., json_schema_extra={"example": "AAPL"})
-    data: List[DividendData]
+    data: DividendsData
     cached: bool = Field(..., json_schema_extra={"example": False})
 
 
@@ -93,13 +99,34 @@ class CompanyInfo(BaseModel):
     market_cap: Optional[float] = Field(None, json_schema_extra={"example": 4063829426176})
     pe_ratio: Optional[float] = Field(None, json_schema_extra={"example": 34.998734})
     forward_pe: Optional[float] = Field(None, json_schema_extra={"example": 29.799831})
+    peg_ratio: Optional[float] = Field(None, json_schema_extra={"example": 2.5})
+    price_to_book: Optional[float] = Field(None, json_schema_extra={"example": 45.3})
+    price_to_sales: Optional[float] = Field(None, json_schema_extra={"example": 7.8})
     dividend_yield: Optional[float] = Field(None, json_schema_extra={"example": 0.0039})
     beta: Optional[float] = Field(None, json_schema_extra={"example": 1.107})
     fifty_two_week_high: Optional[float] = Field(None, json_schema_extra={"example": 288.62})
     fifty_two_week_low: Optional[float] = Field(None, json_schema_extra={"example": 169.21})
+    trailing_eps: Optional[float] = Field(None, json_schema_extra={"example": 6.42})
+    forward_eps: Optional[float] = Field(None, json_schema_extra={"example": 7.15})
+    profit_margin: Optional[float] = Field(None, json_schema_extra={"example": 0.265})
+    operating_margin: Optional[float] = Field(None, json_schema_extra={"example": 0.315})
+    return_on_equity: Optional[float] = Field(None, json_schema_extra={"example": 1.569})
+    return_on_assets: Optional[float] = Field(None, json_schema_extra={"example": 0.228})
+    debt_to_equity: Optional[float] = Field(None, json_schema_extra={"example": 1.965})
+    current_ratio: Optional[float] = Field(None, json_schema_extra={"example": 0.947})
+    quick_ratio: Optional[float] = Field(None, json_schema_extra={"example": 0.814})
+    revenue: Optional[float] = Field(None, json_schema_extra={"example": 391035000000})
+    revenue_per_share: Optional[float] = Field(None, json_schema_extra={"example": 25.37})
     employees: Optional[int] = Field(None, json_schema_extra={"example": 150000})
     country: Optional[str] = Field(None, json_schema_extra={"example": "United States"})
     city: Optional[str] = Field(None, json_schema_extra={"example": "Cupertino"})
+    next_earnings_date: Optional[str] = Field(None, json_schema_extra={"example": "2026-04-30T00:00:00"})
+    free_cash_flow: Optional[float] = Field(None, json_schema_extra={"example": 53640626176})
+    enterprise_value: Optional[float] = Field(None, json_schema_extra={"example": 3012532895744})
+    enterprise_to_revenue: Optional[float] = Field(None, json_schema_extra={"example": 9.863})
+    enterprise_to_ebitda: Optional[float] = Field(None, json_schema_extra={"example": 17.189})
+    ebitda: Optional[float] = Field(None, json_schema_extra={"example": 175258992640})
+    ebitda_margins: Optional[float] = Field(None, json_schema_extra={"example": 0.57377})
 
     model_config = ConfigDict(populate_by_name=True)
 

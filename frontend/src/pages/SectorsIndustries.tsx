@@ -55,6 +55,8 @@ export const SectorsIndustries: React.FC = () => {
   const [companiesViewType, setCompaniesViewType] = useState<"table" | "treemap">("table");
   const [showAllCompanies, setShowAllCompanies] = useState(false);
   const [ratingFilter, setRatingFilter] = useState<string>("all");
+  const [showAllPerforming, setShowAllPerforming] = useState(false);
+  const [showAllGrowth, setShowAllGrowth] = useState(false);
 
   // Initialize from URL parameters
   useEffect(() => {
@@ -549,37 +551,95 @@ export const SectorsIndustries: React.FC = () => {
         {/* Top Performing & Growth Companies */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="card p-4">
-            <h3 className="text-lg font-semibold mb-3">Top Performing</h3>
-            <div className="space-y-2">
-              {industryData.top_performing_companies.slice(0, 5).map((company: any, idx: number) => (
-                <div key={idx} className="p-2 hover:bg-background rounded transition-colors">
-                  <p className="font-medium">{company.name}</p>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-text-secondary">YTD Return</span>
-                    <span className="font-mono text-success">
-                      {company["ytd return"] != null ? formatPercent(company["ytd return"]) : "N/A"}
-                    </span>
-                  </div>
-                </div>
-              ))}
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-lg font-semibold">Top Performing</h3>
+              <span className="text-xs text-text-secondary">
+                {showAllPerforming ? industryData.top_performing_companies.length : Math.min(5, industryData.top_performing_companies.length)} of {industryData.top_performing_companies.length}
+              </span>
             </div>
+            <div className="space-y-2">
+              {(showAllPerforming ? industryData.top_performing_companies : industryData.top_performing_companies.slice(0, 5)).map((company: any, idx: number) => {
+                const ticker = getCompanyTicker(company);
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => ticker && handleCompanyClick(company)}
+                    className={`p-2 hover:bg-background rounded transition-colors ${ticker ? 'cursor-pointer' : ''}`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="font-medium">{company.name}</p>
+                      {ticker && (
+                        <span className="text-xs font-mono text-text-secondary bg-surface px-2 py-0.5 rounded">
+                          {ticker}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-text-secondary">YTD Return</span>
+                      <span className="font-mono text-success">
+                        {company["ytd return"] != null ? formatPercent(company["ytd return"]) : "N/A"}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {industryData.top_performing_companies.length > 5 && (
+              <div className="mt-4 text-center">
+                <button
+                  onClick={() => setShowAllPerforming(!showAllPerforming)}
+                  className="text-sm text-primary hover:underline font-medium"
+                >
+                  {showAllPerforming ? "Show Less" : `Show All ${industryData.top_performing_companies.length} Companies`}
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="card p-4">
-            <h3 className="text-lg font-semibold mb-3">Top Growth</h3>
-            <div className="space-y-2">
-              {industryData.top_growth_companies.slice(0, 5).map((company: any, idx: number) => (
-                <div key={idx} className="p-2 hover:bg-background rounded transition-colors">
-                  <p className="font-medium">{company.name}</p>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-text-secondary">Growth Estimate</span>
-                    <span className="font-mono text-success">
-                      {company["growth estimate"] != null ? `${company["growth estimate"].toFixed(2)}x` : "N/A"}
-                    </span>
-                  </div>
-                </div>
-              ))}
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-lg font-semibold">Top Growth</h3>
+              <span className="text-xs text-text-secondary">
+                {showAllGrowth ? industryData.top_growth_companies.length : Math.min(5, industryData.top_growth_companies.length)} of {industryData.top_growth_companies.length}
+              </span>
             </div>
+            <div className="space-y-2">
+              {(showAllGrowth ? industryData.top_growth_companies : industryData.top_growth_companies.slice(0, 5)).map((company: any, idx: number) => {
+                const ticker = getCompanyTicker(company);
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => ticker && handleCompanyClick(company)}
+                    className={`p-2 hover:bg-background rounded transition-colors ${ticker ? 'cursor-pointer' : ''}`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="font-medium">{company.name}</p>
+                      {ticker && (
+                        <span className="text-xs font-mono text-text-secondary bg-surface px-2 py-0.5 rounded">
+                          {ticker}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-text-secondary">Growth Estimate</span>
+                      <span className="font-mono text-success">
+                        {company["growth estimate"] != null ? `${company["growth estimate"].toFixed(2)}x` : "N/A"}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {industryData.top_growth_companies.length > 5 && (
+              <div className="mt-4 text-center">
+                <button
+                  onClick={() => setShowAllGrowth(!showAllGrowth)}
+                  className="text-sm text-primary hover:underline font-medium"
+                >
+                  {showAllGrowth ? "Show Less" : `Show All ${industryData.top_growth_companies.length} Companies`}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

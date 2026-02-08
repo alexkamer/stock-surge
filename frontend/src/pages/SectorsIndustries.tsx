@@ -557,28 +557,58 @@ export const SectorsIndustries: React.FC = () => {
                 {showAllPerforming ? industryData.top_performing_companies.length : Math.min(5, industryData.top_performing_companies.length)} of {industryData.top_performing_companies.length}
               </span>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-3">
               {(showAllPerforming ? industryData.top_performing_companies : industryData.top_performing_companies.slice(0, 5)).map((company: any, idx: number) => {
                 const ticker = getCompanyTicker(company);
+                const ytdReturn = company["ytd return"];
+                const lastPrice = company["last price"];
+                const targetPrice = company["target price"];
+                const upside = targetPrice && lastPrice ? ((targetPrice - lastPrice) / lastPrice) : null;
+
                 return (
                   <div
                     key={idx}
                     onClick={() => ticker && handleCompanyClick(company)}
-                    className={`p-2 hover:bg-background rounded transition-colors ${ticker ? 'cursor-pointer' : ''}`}
+                    className={`p-3 bg-surface hover:bg-background rounded-lg transition-all border border-border/50 hover:border-primary/30 ${ticker ? 'cursor-pointer' : ''}`}
                   >
-                    <div className="flex items-center justify-between mb-1">
-                      <p className="font-medium">{company.name}</p>
-                      {ticker && (
-                        <span className="text-xs font-mono text-text-secondary bg-surface px-2 py-0.5 rounded">
-                          {ticker}
-                        </span>
-                      )}
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-text-primary truncate">{company.name}</p>
+                        {ticker && (
+                          <span className="text-xs font-mono text-text-secondary">
+                            {ticker}
+                          </span>
+                        )}
+                      </div>
+                      <div className="ml-3 text-right">
+                        {ytdReturn != null && (
+                          <div className={`text-sm font-bold ${ytdReturn >= 0 ? 'text-success' : 'text-danger'}`}>
+                            {formatPercent(ytdReturn)}
+                          </div>
+                        )}
+                        <div className="text-xs text-text-secondary">YTD</div>
+                      </div>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-text-secondary">YTD Return</span>
-                      <span className="font-mono text-success">
-                        {company["ytd return"] != null ? formatPercent(company["ytd return"]) : "N/A"}
-                      </span>
+
+                    <div className="grid grid-cols-3 gap-2 mt-2 pt-2 border-t border-border/30">
+                      <div>
+                        <p className="text-xs text-text-secondary mb-0.5">Price</p>
+                        <p className="text-sm font-mono font-medium">
+                          {lastPrice ? `$${lastPrice.toFixed(2)}` : "—"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-text-secondary mb-0.5">Target</p>
+                        <p className="text-sm font-mono font-medium">
+                          {targetPrice ? `$${targetPrice.toFixed(2)}` : "—"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-text-secondary mb-0.5">Upside</p>
+                        <p className={`text-sm font-mono font-medium ${upside !== null && upside >= 0 ? 'text-success' : upside !== null ? 'text-danger' : ''}`}>
+                          {upside !== null ? formatPercentNoSign(upside * 100) : "—"}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 );
@@ -603,28 +633,59 @@ export const SectorsIndustries: React.FC = () => {
                 {showAllGrowth ? industryData.top_growth_companies.length : Math.min(5, industryData.top_growth_companies.length)} of {industryData.top_growth_companies.length}
               </span>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-3">
               {(showAllGrowth ? industryData.top_growth_companies : industryData.top_growth_companies.slice(0, 5)).map((company: any, idx: number) => {
                 const ticker = getCompanyTicker(company);
+                const growthEstimate = company["growth estimate"];
+                const ytdReturn = company["ytd return"];
+                const lastPrice = company["last price"];
+                const targetPrice = company["target price"];
+                const upside = targetPrice && lastPrice ? ((targetPrice - lastPrice) / lastPrice) : null;
+
                 return (
                   <div
                     key={idx}
                     onClick={() => ticker && handleCompanyClick(company)}
-                    className={`p-2 hover:bg-background rounded transition-colors ${ticker ? 'cursor-pointer' : ''}`}
+                    className={`p-3 bg-surface hover:bg-background rounded-lg transition-all border border-border/50 hover:border-primary/30 ${ticker ? 'cursor-pointer' : ''}`}
                   >
-                    <div className="flex items-center justify-between mb-1">
-                      <p className="font-medium">{company.name}</p>
-                      {ticker && (
-                        <span className="text-xs font-mono text-text-secondary bg-surface px-2 py-0.5 rounded">
-                          {ticker}
-                        </span>
-                      )}
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-text-primary truncate">{company.name}</p>
+                        {ticker && (
+                          <span className="text-xs font-mono text-text-secondary">
+                            {ticker}
+                          </span>
+                        )}
+                      </div>
+                      <div className="ml-3 text-right">
+                        {growthEstimate != null && (
+                          <div className="text-sm font-bold text-primary">
+                            {growthEstimate.toFixed(2)}x
+                          </div>
+                        )}
+                        <div className="text-xs text-text-secondary">Growth</div>
+                      </div>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-text-secondary">Growth Estimate</span>
-                      <span className="font-mono text-success">
-                        {company["growth estimate"] != null ? `${company["growth estimate"].toFixed(2)}x` : "N/A"}
-                      </span>
+
+                    <div className="grid grid-cols-3 gap-2 mt-2 pt-2 border-t border-border/30">
+                      <div>
+                        <p className="text-xs text-text-secondary mb-0.5">YTD</p>
+                        <p className={`text-sm font-mono font-medium ${ytdReturn !== null && ytdReturn >= 0 ? 'text-success' : ytdReturn !== null ? 'text-danger' : ''}`}>
+                          {ytdReturn !== null ? formatPercentNoSign(ytdReturn * 100) : "—"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-text-secondary mb-0.5">Price</p>
+                        <p className="text-sm font-mono font-medium">
+                          {lastPrice ? `$${lastPrice.toFixed(2)}` : "—"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-text-secondary mb-0.5">Upside</p>
+                        <p className={`text-sm font-mono font-medium ${upside !== null && upside >= 0 ? 'text-success' : upside !== null ? 'text-danger' : ''}`}>
+                          {upside !== null ? formatPercentNoSign(upside * 100) : "—"}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 );

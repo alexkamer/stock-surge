@@ -3,7 +3,9 @@ Market data service layer using yfinance
 """
 
 import yfinance as yf
-from typing import Dict, Any
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+from typing import Dict, Any, List
 
 from ..utils.cache import get_cached_data, set_cached_data
 from ..utils.helpers import make_json_serializable
@@ -116,6 +118,15 @@ def get_industry_data(industry_key: str) -> Dict[str, Any]:
     else:
         top_growth = []
 
+    # Get all companies in the industry
+    if industry.top_companies is not None and not industry.top_companies.empty:
+        top_companies = industry.top_companies.reset_index().to_dict('records')
+    else:
+        top_companies = []
+
+    # Get research reports
+    research_reports = industry.research_reports if hasattr(industry, 'research_reports') and industry.research_reports else []
+
     result = {
         "key": industry.key,
         "name": industry.name,
@@ -131,8 +142,146 @@ def get_industry_data(industry_key: str) -> Dict[str, Any]:
         },
         "top_performing_companies": make_json_serializable(top_performing),
         "top_growth_companies": make_json_serializable(top_growth),
+        "top_companies": make_json_serializable(top_companies),
+        "research_reports": make_json_serializable(research_reports),
         "cached": False
     }
 
     set_cached_data(cache_key, result, CACHE_TTL_LONG)
     return result
+
+
+
+def fetch_ticker_price(ticker: str) -> Dict[str, Any]:
+    """Fetch real-time price for a single ticker"""
+    try:
+        stock = yf.Ticker(ticker)
+        info = stock.fast_info
+
+        price = getattr(info, "last_price", None)
+        previous_close = getattr(info, "previous_close", None)
+
+        change = None
+        change_percent = None
+        if price is not None and previous_close is not None and previous_close != 0:
+            change = price - previous_close
+            change_percent = (change / previous_close) * 100
+
+        return {
+            "ticker": ticker,
+            "price": float(price) if price is not None else None,
+            "change": float(change) if change is not None else None,
+            "change_percent": float(change_percent) if change_percent is not None else None,
+            "previous_close": float(previous_close) if previous_close is not None else None,
+            "day_high": float(getattr(info, "day_high", None)) if getattr(info, "day_high", None) is not None else None,
+            "day_low": float(getattr(info, "day_low", None)) if getattr(info, "day_low", None) is not None else None,
+            "volume": int(getattr(info, "last_volume", None)) if getattr(info, "last_volume", None) is not None else None,
+        }
+    except Exception as e:
+        print(f"Error fetching price for {ticker}: {e}")
+        return {
+            "ticker": ticker,
+            "price": None,
+            "change": None,
+            "change_percent": None,
+            "previous_close": None,
+            "day_high": None,
+            "day_low": None,
+            "volume": None,
+        }
+
+
+async def get_industry_prices_async(industry_key: str, tickers: List[str]) -> Dict[str, Any]:
+    """Get real-time prices for multiple tickers asynchronously"""
+    cache_key = f"industry_prices:{industry_key}:{'-'.join(sorted(tickers))}"
+    cached = get_cached_data(cache_key)
+
+    if cached:
+        return {
+            "industry_key": industry_key,
+            "prices": cached.get("prices", []),
+            "cached": True
+        }
+
+    # Use ThreadPoolExecutor to run blocking yfinance calls in parallel
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        loop = asyncio.get_event_loop()
+        tasks = [
+            loop.run_in_executor(executor, fetch_ticker_price, ticker)
+            for ticker in tickers
+        ]
+        prices = await asyncio.gather(*tasks)
+
+    result = {
+        "prices": prices
+    }
+
+    set_cached_data(cache_key, result, CACHE_TTL_SHORT)
+    return {
+        "industry_key": industry_key,
+        "prices": prices,
+        "cached": False
+    }
+
+
+
+def fetch_ticker_history(ticker: str, period: str) -> Dict[str, Any]:
+    """Fetch historical price data for a single ticker"""
+    try:
+        stock = yf.Ticker(ticker)
+        hist = stock.history(period=period, interval="1d")
+        
+        if hist.empty:
+            return {"ticker": ticker, "data": []}
+        
+        # Convert to list of dicts with normalized returns
+        data = []
+        first_close = hist['Close'].iloc[0]
+        
+        for date, row in hist.iterrows():
+            normalized_return = ((row['Close'] - first_close) / first_close) * 100
+            data.append({
+                "date": date.strftime('%Y-%m-%d'),
+                "close": float(row['Close']),
+                "normalized_return": float(normalized_return)
+            })
+        
+        return {"ticker": ticker, "data": data}
+    except Exception as e:
+        print(f"Error fetching history for {ticker}: {e}")
+        return {"ticker": ticker, "data": []}
+
+
+async def get_industry_performance_async(industry_key: str, tickers: List[str], period: str = "1mo") -> Dict[str, Any]:
+    """Get historical performance data for multiple tickers asynchronously"""
+    cache_key = f"industry_performance:{industry_key}:{period}:{'-'.join(sorted(tickers))}"
+    cached = get_cached_data(cache_key)
+    
+    if cached:
+        return {
+            "industry_key": industry_key,
+            "period": period,
+            "performance": cached.get("performance", []),
+            "cached": True
+        }
+    
+    # Use ThreadPoolExecutor to run blocking yfinance calls in parallel
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        loop = asyncio.get_event_loop()
+        tasks = [
+            loop.run_in_executor(executor, fetch_ticker_history, ticker, period)
+            for ticker in tickers
+        ]
+        performance = await asyncio.gather(*tasks)
+    
+    result = {
+        "performance": performance
+    }
+
+    set_cached_data(cache_key, result, 300)  # 5 minutes
+    return {
+        "industry_key": industry_key,
+        "period": period,
+        "performance": performance,
+        "cached": False
+    }

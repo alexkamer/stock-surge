@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { stockApi } from "../api/endpoints/stocks";
@@ -9,21 +9,23 @@ import { IndustrySearchableList } from "../components/dashboard/IndustrySearchab
 import { IndustryGridView } from "../components/dashboard/IndustryGridView";
 import { CompaniesTreemap } from "../components/dashboard/CompaniesTreemap";
 import { Header } from "../components/layout/Header";
-import { LayoutGrid, PieChart as PieChartIcon, Table as TableIcon, Grid3x3, Info } from "lucide-react";
+import { LayoutGrid, PieChart as PieChartIcon, Table as TableIcon, Grid3x3, Info, TrendingUp, FileText, ArrowUpRight, ArrowDownRight, Building2, ChevronDown, ChevronUp, LineChart as LineChartIcon, Loader2 } from "lucide-react";
+import { IndustryPerformanceChart } from "../components/charts/IndustryPerformanceChart";
 
-const POPULAR_SECTORS = [
-  { key: "technology", name: "Technology" },
-  { key: "healthcare", name: "Healthcare" },
-  { key: "financial-services", name: "Financial Services" },
-  { key: "consumer-cyclical", name: "Consumer Cyclical" },
-  { key: "industrials", name: "Industrials" },
-  { key: "communication-services", name: "Communication Services" },
-  { key: "energy", name: "Energy" },
-  { key: "basic-materials", name: "Basic Materials" },
-  { key: "consumer-defensive", name: "Consumer Defensive" },
-  { key: "real-estate", name: "Real Estate" },
-  { key: "utilities", name: "Utilities" },
-];
+// Popular sectors list (for potential future use)
+// const POPULAR_SECTORS = [
+//   { key: "technology", name: "Technology" },
+//   { key: "healthcare", name: "Healthcare" },
+//   { key: "financial-services", name: "Financial Services" },
+//   { key: "consumer-cyclical", name: "Consumer Cyclical" },
+//   { key: "industrials", name: "Industrials" },
+//   { key: "communication-services", name: "Communication Services" },
+//   { key: "energy", name: "Energy" },
+//   { key: "basic-materials", name: "Basic Materials" },
+//   { key: "consumer-defensive", name: "Consumer Defensive" },
+//   { key: "real-estate", name: "Real Estate" },
+//   { key: "utilities", name: "Utilities" },
+// ];
 
 // Mapping of industry names to their API keys
 const INDUSTRY_KEY_MAP: Record<string, string> = {
@@ -57,6 +59,11 @@ export const SectorsIndustries: React.FC = () => {
   const [ratingFilter, setRatingFilter] = useState<string>("all");
   const [showAllPerforming, setShowAllPerforming] = useState(false);
   const [showAllGrowth, setShowAllGrowth] = useState(false);
+  const [showAllIndustryCompanies, setShowAllIndustryCompanies] = useState(false);
+  const [industryCompanyRatingFilter, setIndustryCompanyRatingFilter] = useState<string>("all");
+  const [companySortBy, setCompanySortBy] = useState<"marketWeight" | "rating">("marketWeight");
+  const [companySortOrder, setCompanySortOrder] = useState<"asc" | "desc">("desc");
+  const [performancePeriod, setPerformancePeriod] = useState<string>("1mo");
 
   // Initialize from URL parameters
   useEffect(() => {
@@ -88,6 +95,45 @@ export const SectorsIndustries: React.FC = () => {
     enabled: viewMode === "industry" && selectedIndustry !== null,
   });
 
+  // Get tickers for price and performance fetching
+  const industryTickers = React.useMemo(() => {
+    if (!industryData?.top_companies) return [];
+    return industryData.top_companies
+      .map((company: any) => company.symbol)
+      .filter(Boolean);
+  }, [industryData]);
+
+  const top5Tickers = React.useMemo(() => {
+    return industryTickers.slice(0, 5);
+  }, [industryTickers]);
+
+  // Fetch real-time prices
+  const { data: pricesData, isLoading: pricesLoading } = useQuery({
+    queryKey: ["industryPrices", selectedIndustry, industryTickers],
+    queryFn: () => stockApi.getIndustryPrices(selectedIndustry!, industryTickers),
+    staleTime: 30 * 1000, // 30 seconds
+    enabled: viewMode === "industry" && selectedIndustry !== null && industryTickers.length > 0,
+  });
+
+  // Fetch performance data for charting
+  const { data: performanceData, isLoading: performanceLoading } = useQuery({
+    queryKey: ["industryPerformance", selectedIndustry, top5Tickers, performancePeriod],
+    queryFn: () => stockApi.getIndustryPerformance(selectedIndustry!, top5Tickers, performancePeriod),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    enabled: viewMode === "industry" && selectedIndustry !== null && top5Tickers.length > 0,
+  });
+
+  // Create price lookup map
+  const priceMap = React.useMemo(() => {
+    const map = new Map<string, any>();
+    if (pricesData?.prices) {
+      pricesData.prices.forEach((priceData: any) => {
+        map.set(priceData.ticker, priceData);
+      });
+    }
+    return map;
+  }, [pricesData]);
+
   // Generate colors based on sector and industry count
   const industryColors = React.useMemo(() => {
     if (!sectorData?.industries) return [];
@@ -117,14 +163,15 @@ export const SectorsIndustries: React.FC = () => {
       }));
   }, [sectorData, industryColors]);
 
-  const handleSectorClick = (sectorKey: string) => {
-    setSelectedSector(sectorKey);
-    setSelectedIndustry(null);
-    setViewMode("sector");
-    setShowAllCompanies(false);
-    setRatingFilter("all");
-    navigate(`/sectors?sector=${sectorKey}`, { replace: true });
-  };
+  // Handler for sector selection (currently unused but kept for potential navigation features)
+  // const handleSectorClick = (sectorKey: string) => {
+  //   setSelectedSector(sectorKey);
+  //   setSelectedIndustry(null);
+  //   setViewMode("sector");
+  //   setShowAllCompanies(false);
+  //   setRatingFilter("all");
+  //   navigate(`/sectors?sector=${sectorKey}`, { replace: true });
+  // };
 
   const handleIndustryClick = (industryKey: string) => {
     setSelectedIndustry(industryKey);
@@ -479,6 +526,61 @@ export const SectorsIndustries: React.FC = () => {
     );
   };
 
+  // Helper functions for industry view
+  const getRatingColor = (rating: string): string => {
+    const ratingLower = rating?.toLowerCase() || "";
+    if (ratingLower === "buy" || ratingLower === "bullish") return "text-success bg-success/10 border-success/30";
+    if (ratingLower === "hold" || ratingLower === "neutral") return "text-yellow-500 bg-yellow-500/10 border-yellow-500/30";
+    if (ratingLower === "sell" || ratingLower === "bearish") return "text-danger bg-danger/10 border-danger/30";
+    return "text-text-secondary bg-surface border-border";
+  };
+
+  const formatReportDate = (dateString: string): string => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  };
+
+  // Get sorted and filtered companies for industry view
+  const sortedIndustryCompanies = React.useMemo(() => {
+    if (!industryData?.top_companies) return [];
+
+    let filtered = industryData.top_companies;
+
+    // Filter by rating
+    if (industryCompanyRatingFilter !== "all") {
+      filtered = filtered.filter((company: any) => company.rating === industryCompanyRatingFilter);
+    }
+
+    // Sort
+    const sorted = [...filtered].sort((a: any, b: any) => {
+      if (companySortBy === "marketWeight") {
+        const aWeight = a["market weight"] || 0;
+        const bWeight = b["market weight"] || 0;
+        return companySortOrder === "desc" ? bWeight - aWeight : aWeight - bWeight;
+      } else {
+        // Sort by rating (Buy > Hold > Sell)
+        const ratingOrder: Record<string, number> = { "Buy": 3, "Hold": 2, "Sell": 1 };
+        const aOrder = ratingOrder[a.rating] || 0;
+        const bOrder = ratingOrder[b.rating] || 0;
+        return companySortOrder === "desc" ? bOrder - aOrder : aOrder - bOrder;
+      }
+    });
+
+    return sorted;
+  }, [industryData, industryCompanyRatingFilter, companySortBy, companySortOrder]);
+
+  // Get available ratings in industry companies
+  const industryCompanyRatings = React.useMemo(() => {
+    if (!industryData?.top_companies) return [];
+    const ratings = new Set<string>();
+    industryData.top_companies.forEach((company: any) => {
+      if (company.rating) {
+        ratings.add(company.rating);
+      }
+    });
+    return Array.from(ratings).sort();
+  }, [industryData]);
+
   const renderIndustryView = () => {
     if (industryLoading) {
       return (
@@ -547,6 +649,396 @@ export const SectorsIndustries: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Research Reports Section */}
+        {industryData.research_reports && industryData.research_reports.length > 0 && (
+          <div className="card p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <FileText className="w-5 h-5 text-primary" />
+              <h3 className="text-lg font-semibold">Analyst Research Reports</h3>
+              <span className="text-xs text-text-secondary ml-auto">
+                {industryData.research_reports.length} reports
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {industryData.research_reports.slice(0, 4).map((report: any) => {
+                const isPriceIncreased = report.targetPriceStatus?.toLowerCase() === "increased";
+                const isPriceDecreased = report.targetPriceStatus?.toLowerCase() === "decreased";
+                const reportDate = report.reportDate ? formatReportDate(report.reportDate) : null;
+
+                return (
+                  <div
+                    key={report.id}
+                    onClick={() => {
+                      // Try to extract ticker from the report to navigate
+                      const ticker = report.id?.split('_')[1];
+                      if (ticker) {
+                        navigate(`/stock/${ticker}`);
+                      }
+                    }}
+                    className="group relative p-4 bg-surface hover:bg-background rounded-lg border border-border/50 hover:border-primary/40 transition-all cursor-pointer"
+                  >
+                    {/* Header */}
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-semibold text-text-primary mb-1 line-clamp-1">
+                          {report.headHtml?.replace(/<[^>]*>/g, "") || "Analyst Report"}
+                        </h4>
+                        <div className="flex items-center gap-2 text-xs text-text-secondary">
+                          <span>{report.provider}</span>
+                          {reportDate && (
+                            <>
+                              <span>•</span>
+                              <span>{reportDate}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Investment Rating Badge */}
+                      {report.investmentRating && (
+                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border whitespace-nowrap ${getRatingColor(report.investmentRating)}`}>
+                          {report.investmentRating}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Target Price Info */}
+                    {report.targetPrice && (
+                      <div className="flex items-center gap-4 p-2.5 bg-background/50 rounded-md border border-border/30">
+                        <div className="flex items-center gap-1.5">
+                          {isPriceIncreased && <ArrowUpRight className="w-4 h-4 text-success" />}
+                          {isPriceDecreased && <ArrowDownRight className="w-4 h-4 text-danger" />}
+                          {!isPriceIncreased && !isPriceDecreased && <TrendingUp className="w-4 h-4 text-text-secondary" />}
+                          <span className="text-xs text-text-secondary">Target</span>
+                        </div>
+                        <span className={`text-lg font-bold font-mono ${isPriceIncreased ? 'text-success' : isPriceDecreased ? 'text-danger' : 'text-text-primary'}`}>
+                          ${report.targetPrice.toFixed(2)}
+                        </span>
+                        {report.targetPriceStatus && (
+                          <span className={`text-xs font-medium ml-auto ${isPriceIncreased ? 'text-success' : isPriceDecreased ? 'text-danger' : 'text-text-secondary'}`}>
+                            {report.targetPriceStatus}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Report Title/Summary */}
+                    {report.reportTitle && (
+                      <p className="text-xs text-text-secondary mt-3 line-clamp-2 leading-relaxed">
+                        {report.reportTitle}
+                      </p>
+                    )}
+
+                    {/* Hover indicator */}
+                    <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <ArrowUpRight className="w-4 h-4 text-primary" />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Industry Performance Chart */}
+        {top5Tickers.length > 0 && (
+          <div className="card p-5">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+              <div className="flex items-center gap-2">
+                <LineChartIcon className="w-5 h-5 text-primary" />
+                <h3 className="text-lg font-semibold">Performance Comparison</h3>
+              </div>
+
+              {/* Period Selector */}
+              <div className="flex items-center gap-1 bg-background rounded-lg p-1 sm:ml-auto">
+                {[
+                  { value: "1mo", label: "1M" },
+                  { value: "3mo", label: "3M" },
+                  { value: "6mo", label: "6M" },
+                  { value: "1y", label: "1Y" },
+                ].map((period) => (
+                  <button
+                    key={period.value}
+                    onClick={() => setPerformancePeriod(period.value)}
+                    className={`px-3 py-1.5 rounded text-sm font-medium transition-all ${
+                      performancePeriod === period.value
+                        ? "bg-primary/10 text-primary border border-primary/30"
+                        : "text-text-secondary hover:text-text-primary hover:bg-surface"
+                    }`}
+                  >
+                    {period.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {performanceLoading ? (
+              <div className="flex items-center justify-center h-80 bg-surface/30 rounded-lg border border-border/30">
+                <div className="flex flex-col items-center gap-3">
+                  <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                  <p className="text-sm text-text-secondary">Loading performance data...</p>
+                </div>
+              </div>
+            ) : performanceData?.performance && performanceData.performance.length > 0 ? (
+              <div className="h-80 bg-surface/30 rounded-lg border border-border/30 p-4">
+                <IndustryPerformanceChart
+                  performance={performanceData.performance}
+                  period={performancePeriod}
+                />
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-80 bg-surface/30 rounded-lg border border-border/30">
+                <p className="text-sm text-text-secondary">No performance data available</p>
+              </div>
+            )}
+
+            <p className="text-xs text-text-secondary mt-3 pt-3 border-t border-border/50">
+              Showing normalized returns for top 5 companies. All values are relative to the start of the period.
+            </p>
+          </div>
+        )}
+
+        {/* All Companies Table */}
+        {industryData.top_companies && industryData.top_companies.length > 0 && (
+          <div className="card p-5">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-4">
+              <div className="flex items-center gap-2">
+                <Building2 className="w-5 h-5 text-primary" />
+                <h3 className="text-lg font-semibold">Top Companies by Market Weight</h3>
+              </div>
+              <div className="flex items-center gap-2 sm:ml-auto">
+                <span className="text-xs text-text-secondary">
+                  Showing {sortedIndustryCompanies.length} of {industryData.overview.companies_count} total companies
+                </span>
+                <div className="group relative">
+                  <Info className="w-4 h-4 text-text-secondary cursor-help" />
+                  <div className="absolute right-0 top-6 w-64 p-2 bg-surface border border-border rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                    <p className="text-xs text-text-secondary">
+                      Displaying the top companies by market capitalization. The industry contains {industryData.overview.companies_count} total companies, but only the most significant ones have detailed market data available.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Filters and Sort */}
+            <div className="flex flex-col sm:flex-row gap-3 mb-4 pb-4 border-b border-border/50">
+              {/* Rating Filter */}
+              {industryCompanyRatings.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-text-secondary whitespace-nowrap">Filter:</label>
+                  <select
+                    value={industryCompanyRatingFilter}
+                    onChange={(e) => {
+                      setIndustryCompanyRatingFilter(e.target.value);
+                      setShowAllIndustryCompanies(false);
+                    }}
+                    className="appearance-none bg-background border border-border rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 cursor-pointer"
+                  >
+                    <option value="all">All Ratings</option>
+                    {industryCompanyRatings.map((rating) => (
+                      <option key={rating} value={rating}>
+                        {rating}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Sort Controls */}
+              <div className="flex items-center gap-2 sm:ml-auto">
+                <label className="text-xs text-text-secondary whitespace-nowrap">Sort by:</label>
+                <button
+                  onClick={() => {
+                    if (companySortBy === "marketWeight") {
+                      setCompanySortOrder(companySortOrder === "desc" ? "asc" : "desc");
+                    } else {
+                      setCompanySortBy("marketWeight");
+                      setCompanySortOrder("desc");
+                    }
+                  }}
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium transition-all ${
+                    companySortBy === "marketWeight"
+                      ? "bg-primary/10 text-primary border border-primary/30"
+                      : "bg-background text-text-secondary border border-border hover:bg-surface"
+                  }`}
+                >
+                  Market Weight
+                  {companySortBy === "marketWeight" && (
+                    companySortOrder === "desc" ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    if (companySortBy === "rating") {
+                      setCompanySortOrder(companySortOrder === "desc" ? "asc" : "desc");
+                    } else {
+                      setCompanySortBy("rating");
+                      setCompanySortOrder("desc");
+                    }
+                  }}
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium transition-all ${
+                    companySortBy === "rating"
+                      ? "bg-primary/10 text-primary border border-primary/30"
+                      : "bg-background text-text-secondary border border-border hover:bg-surface"
+                  }`}
+                >
+                  Rating
+                  {companySortBy === "rating" && (
+                    companySortOrder === "desc" ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Companies Table */}
+            <div className="overflow-x-auto -mx-1">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left text-xs font-semibold text-text-secondary uppercase tracking-wider py-3 px-3">
+                      Rank
+                    </th>
+                    <th className="text-left text-xs font-semibold text-text-secondary uppercase tracking-wider py-3 px-3">
+                      Company
+                    </th>
+                    <th className="text-left text-xs font-semibold text-text-secondary uppercase tracking-wider py-3 px-3">
+                      Ticker
+                    </th>
+                    <th className="text-left text-xs font-semibold text-text-secondary uppercase tracking-wider py-3 px-3">
+                      Rating
+                    </th>
+                    <th className="text-right text-xs font-semibold text-text-secondary uppercase tracking-wider py-3 px-3">
+                      Price
+                    </th>
+                    <th className="text-right text-xs font-semibold text-text-secondary uppercase tracking-wider py-3 px-3">
+                      Day Change
+                    </th>
+                    <th className="text-right text-xs font-semibold text-text-secondary uppercase tracking-wider py-3 px-3">
+                      Market Weight
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pricesLoading && (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                          <span className="text-sm text-text-secondary">Loading prices...</span>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  {!pricesLoading && (showAllIndustryCompanies ? sortedIndustryCompanies : sortedIndustryCompanies.slice(0, 10)).map((company: any, idx: number) => {
+                    const ticker = getCompanyTicker(company);
+                    const priceData = ticker ? priceMap.get(ticker) : null;
+                    return (
+                      <tr
+                        key={idx}
+                        onClick={() => ticker && handleCompanyClick(company)}
+                        className={`border-b border-border/30 hover:bg-surface/50 transition-all group ${ticker ? 'cursor-pointer' : ''}`}
+                      >
+                        <td className="py-3 px-3">
+                          <span className="text-sm font-bold text-text-secondary group-hover:text-primary transition-colors">
+                            {idx + 1}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3">
+                          <span className="text-sm font-medium group-hover:text-primary transition-colors">
+                            {company.name}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3">
+                          {ticker ? (
+                            <span className="inline-block text-xs font-mono font-semibold px-2 py-1 rounded bg-background border border-border group-hover:border-primary/50 transition-colors">
+                              {ticker}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-text-secondary">—</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3">
+                          {company.rating ? (
+                            <span className={`inline-block text-xs font-semibold px-2.5 py-1 rounded-full border ${getRatingColor(company.rating)}`}>
+                              {company.rating}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-text-secondary">—</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 text-right">
+                          {priceData?.price ? (
+                            <span className="text-sm font-mono font-semibold">
+                              ${priceData.price.toFixed(2)}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-text-secondary">—</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 text-right">
+                          {priceData?.change !== null && priceData?.change !== undefined && priceData?.change_percent !== null && priceData?.change_percent !== undefined ? (
+                            <div className="flex items-center justify-end gap-1.5">
+                              {priceData.change >= 0 ? (
+                                <ArrowUpRight className="w-3.5 h-3.5 text-success" />
+                              ) : (
+                                <ArrowDownRight className="w-3.5 h-3.5 text-danger" />
+                              )}
+                              <div className="flex flex-col items-end">
+                                <span className={`text-sm font-mono font-semibold ${priceData.change >= 0 ? 'text-success' : 'text-danger'}`}>
+                                  {priceData.change >= 0 ? '+' : ''}{priceData.change.toFixed(2)}
+                                </span>
+                                <span className={`text-xs font-mono ${priceData.change >= 0 ? 'text-success' : 'text-danger'}`}>
+                                  ({priceData.change_percent >= 0 ? '+' : ''}{priceData.change_percent.toFixed(2)}%)
+                                </span>
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-text-secondary">—</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <div className="h-1.5 w-16 bg-background rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-primary/60 rounded-full transition-all"
+                                style={{ width: `${Math.min((company["market weight"] || 0) * 100 / 0.5, 100)}%` }}
+                              />
+                            </div>
+                            <span className="text-sm font-mono font-medium min-w-[3rem] text-right">
+                              {formatPercentNoSign((company["market weight"] || 0) * 100)}
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {sortedIndustryCompanies.length === 0 && (
+              <div className="text-center py-8 text-text-secondary text-sm">
+                No companies found with the selected filters.
+              </div>
+            )}
+
+            {sortedIndustryCompanies.length > 10 && (
+              <div className="mt-4 pt-4 border-t border-border/50 text-center">
+                <button
+                  onClick={() => setShowAllIndustryCompanies(!showAllIndustryCompanies)}
+                  className="text-sm text-primary hover:underline font-medium"
+                >
+                  {showAllIndustryCompanies
+                    ? "Show Top 10"
+                    : `Show All ${sortedIndustryCompanies.length} Top Companies`}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Top Performing & Growth Companies */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -659,8 +1151,6 @@ export const SectorsIndustries: React.FC = () => {
                 const growthEstimate = company["growth estimate"];
                 const ytdReturn = company["ytd return"];
                 const lastPrice = company["last price"];
-                const targetPrice = company["target price"];
-                const upside = targetPrice && lastPrice ? ((targetPrice - lastPrice) / lastPrice) : null;
 
                 return (
                   <div

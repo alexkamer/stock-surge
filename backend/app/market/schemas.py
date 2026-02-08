@@ -75,4 +75,30 @@ class IndustryResponse(BaseModel):
     overview: IndustryOverview
     top_performing_companies: List[Dict[str, Any]]
     top_growth_companies: List[Dict[str, Any]]
+    top_companies: List[Dict[str, Any]]
+    research_reports: List[Dict[str, Any]]
+    cached: bool
+
+
+class TickerPrice(BaseModel):
+    """Real-time price data for a ticker"""
+    ticker: str
+    price: Optional[float]
+    change: Optional[float]
+    change_percent: Optional[float]
+    previous_close: Optional[float]
+    day_high: Optional[float]
+    day_low: Optional[float]
+    volume: Optional[int]
+
+
+class IndustryPricesRequest(BaseModel):
+    """Request model for industry prices"""
+    tickers: List[str]
+
+
+class IndustryPricesResponse(BaseModel):
+    """Response model for industry prices"""
+    industry_key: str
+    prices: List[TickerPrice]
     cached: bool

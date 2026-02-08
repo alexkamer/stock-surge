@@ -135,6 +135,8 @@ export interface IndustryResponse {
   overview: IndustryOverview;
   top_performing_companies: Array<Record<string, any>>;
   top_growth_companies: Array<Record<string, any>>;
+  top_companies: Array<Record<string, any>>;
+  research_reports: Array<Record<string, any>>;
   cached: boolean;
 }
 
@@ -209,6 +211,16 @@ export const stockApi = {
 
   getIndustry: async (industryKey: string) => {
     const response = await apiClient.get<IndustryResponse>(`/industry/${industryKey}`);
+    return response.data;
+  },
+
+  getIndustryPrices: async (industryKey: string, tickers: string[]) => {
+    const response = await apiClient.post(`/industry/${industryKey}/prices`, { tickers });
+    return response.data;
+  },
+
+  getIndustryPerformance: async (industryKey: string, tickers: string[], period: string = "1mo") => {
+    const response = await apiClient.post(`/industry/${industryKey}/performance?period=${period}`, { tickers });
     return response.data;
   },
 

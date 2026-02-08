@@ -7,8 +7,8 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 import yfinance as yf
 
-from .schemas import MarketOverviewResponse, SectorResponse, IndustryResponse, AvailableMarket
-from .service import get_market_overview_data, get_sector_data, get_industry_data
+from .schemas import MarketOverviewResponse, SectorResponse, IndustryResponse, AvailableMarket, IndustryPricesRequest, IndustryPricesResponse
+from .service import get_market_overview_data, get_sector_data, get_industry_data, get_industry_prices_async
 
 # Create router
 router = APIRouter(tags=["market"])
@@ -109,3 +109,34 @@ async def get_industry(request: Request, industry_key: str):
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching industry data: {str(e)}")
+
+
+@router.post("/industry/{industry_key}/prices", response_model=IndustryPricesResponse)
+@limiter.limit("30/minute")
+async def get_industry_prices(request: Request, industry_key: str, body: IndustryPricesRequest):
+    """
+    Get real-time price data for multiple tickers in an industry.
+    Uses async fetching for improved performance.
+    Cached for 30 seconds.
+    """
+    try:
+        result = await get_industry_prices_async(industry_key, body.tickers)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching industry prices: {str(e)}")
+
+
+@router.post("/industry/{industry_key}/performance")
+@limiter.limit("20/minute")
+async def get_industry_performance(request: Request, industry_key: str, body: IndustryPricesRequest, period: str = "1mo"):
+    """
+    Get historical performance data for multiple tickers in an industry for charting.
+    Period can be: 1mo, 3mo, 6mo, 1y
+    Cached for 5 minutes.
+    """
+    from .service import get_industry_performance_async
+    try:
+        result = await get_industry_performance_async(industry_key, body.tickers, period)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching industry performance: {str(e)}")

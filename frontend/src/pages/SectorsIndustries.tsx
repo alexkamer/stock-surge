@@ -671,13 +671,12 @@ export const SectorsIndustries: React.FC = () => {
                   <div
                     key={report.id}
                     onClick={() => {
-                      // Try to extract ticker from the report to navigate
-                      const ticker = report.id?.split('_')[1];
-                      if (ticker) {
-                        navigate(`/stock/${ticker}`);
+                      // Use the enriched ticker field from the backend
+                      if (report.ticker) {
+                        navigate(`/stock/${report.ticker}`);
                       }
                     }}
-                    className="group relative p-4 bg-surface hover:bg-background rounded-lg border border-border/50 hover:border-primary/40 transition-all cursor-pointer"
+                    className={`group relative p-4 bg-surface hover:bg-background rounded-lg border border-border/50 hover:border-primary/40 transition-all ${report.ticker ? 'cursor-pointer' : 'cursor-default'}`}
                   >
                     {/* Header */}
                     <div className="flex items-start justify-between gap-3 mb-3">

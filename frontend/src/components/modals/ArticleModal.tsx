@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
 import { X, ExternalLink, User, Calendar, FileText } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import type { ArticleContent } from "../../api/endpoints/stocks";
 
 interface ArticleModalProps {
@@ -136,10 +137,17 @@ export const ArticleModal: React.FC<ArticleModalProps> = ({
 
               {/* Article Content */}
               {article.content ? (
-                <div className="prose prose-invert max-w-none">
-                  <div className="text-text-primary leading-relaxed space-y-4 whitespace-pre-wrap">
-                    {article.content}
-                  </div>
+                <div className="prose prose-invert max-w-none
+                  prose-headings:text-text-primary prose-headings:font-bold
+                  prose-h2:text-2xl prose-h2:mt-8 prose-h2:mb-5 first:prose-h2:mt-0
+                  prose-p:text-text-primary prose-p:leading-[1.8] prose-p:mb-5 prose-p:text-[15px]
+                  prose-strong:text-text-primary prose-strong:font-semibold
+                  prose-a:text-accent prose-a:no-underline hover:prose-a:underline
+                  prose-ul:my-5 prose-ul:list-disc prose-ul:pl-6
+                  prose-ol:my-5 prose-ol:list-decimal prose-ol:pl-6
+                  prose-li:mb-2 prose-li:leading-[1.8]
+                  [&>*:first-child]:mt-0">
+                  <ReactMarkdown>{article.content}</ReactMarkdown>
                 </div>
               ) : (
                 <p className="text-text-secondary text-center py-8">

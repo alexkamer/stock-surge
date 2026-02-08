@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
-import { stockApi } from "../../api/endpoints/stocks";
-import { formatPercent, formatPercentNoSign, formatCompactCurrency } from "../../lib/formatters";
-import { generateIndustryColors } from "../../lib/chartColors";
-import { IndustryPieChart } from "./IndustryPieChart";
-import { IndustrySearchableList } from "./IndustrySearchableList";
-import { IndustryGridView } from "./IndustryGridView";
-import { CompaniesTreemap } from "./CompaniesTreemap";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { stockApi } from "../api/endpoints/stocks";
+import { formatPercent, formatPercentNoSign, formatCompactCurrency } from "../lib/formatters";
+import { generateIndustryColors } from "../lib/chartColors";
+import { IndustryPieChart } from "../components/dashboard/IndustryPieChart";
+import { IndustrySearchableList } from "../components/dashboard/IndustrySearchableList";
+import { IndustryGridView } from "../components/dashboard/IndustryGridView";
+import { CompaniesTreemap } from "../components/dashboard/CompaniesTreemap";
+import { Header } from "../components/layout/Header";
 import { LayoutGrid, PieChart as PieChartIcon, Table as TableIcon, Grid3x3 } from "lucide-react";
 
 const POPULAR_SECTORS = [
@@ -44,21 +45,37 @@ const INDUSTRY_KEY_MAP: Record<string, string> = {
   "oil & gas equipment & services": "oil-gas-equipment-services",
 };
 
-export const SectorIndustry: React.FC = () => {
+export const SectorsIndustries: React.FC = () => {
   const navigate = useNavigate();
-  const [selectedSector, setSelectedSector] = useState("technology");
-  const [viewMode, setViewMode] = useState<"sector" | "industry">("sector");
+  const [searchParams] = useSearchParams();
+  const [selectedSector, setSelectedSector] = useState<string | null>(null);
   const [selectedIndustry, setSelectedIndustry] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"none" | "sector" | "industry">("none");
   const [industryViewType, setIndustryViewType] = useState<"grid" | "pie">("pie");
   const [companiesViewType, setCompaniesViewType] = useState<"table" | "treemap">("table");
   const [showAllCompanies, setShowAllCompanies] = useState(false);
   const [ratingFilter, setRatingFilter] = useState<string>("all");
 
-  // Fetch sector data (always fetch to populate industry dropdown)
+  // Initialize from URL parameters
+  useEffect(() => {
+    const sectorParam = searchParams.get("sector");
+    const industryParam = searchParams.get("industry");
+
+    if (industryParam) {
+      setSelectedIndustry(industryParam);
+      setViewMode("industry");
+    } else if (sectorParam) {
+      setSelectedSector(sectorParam);
+      setViewMode("sector");
+    }
+  }, [searchParams]);
+
+  // Fetch sector data for selected sector
   const { data: sectorData, isLoading: sectorLoading } = useQuery({
     queryKey: ["sector", selectedSector],
-    queryFn: () => stockApi.getSector(selectedSector),
+    queryFn: () => stockApi.getSector(selectedSector!),
     staleTime: 60 * 60 * 1000, // 1 hour
+    enabled: viewMode === "sector" && selectedSector !== null,
   });
 
   // Fetch industry data
@@ -70,13 +87,13 @@ export const SectorIndustry: React.FC = () => {
   });
 
   // Generate colors based on sector and industry count
-  const industryColors = useMemo(() => {
+  const industryColors = React.useMemo(() => {
     if (!sectorData?.industries) return [];
-    return generateIndustryColors(sectorData.industries.length, selectedSector);
+    return generateIndustryColors(sectorData.industries.length, selectedSector || "");
   }, [sectorData, selectedSector]);
 
   // Get industries from sector data with mapped keys, colors, and metadata
-  const availableIndustries = useMemo(() => {
+  const availableIndustries = React.useMemo(() => {
     if (!sectorData?.industries) return [];
 
     return sectorData.industries
@@ -91,52 +108,33 @@ export const SectorIndustry: React.FC = () => {
           color: industryColors[idx] || "#888888",
         };
       })
-      .sort((a: any, b: any) => b.weight - a.weight) // Sort by market weight
+      .sort((a: any, b: any) => b.weight - a.weight)
       .map((industry: any, idx: number) => ({
         ...industry,
-        rank: idx + 1, // Add rank after sorting
+        rank: idx + 1,
       }));
   }, [sectorData, industryColors]);
 
-  // Reset selected industry when sector changes
-  useEffect(() => {
+  const handleSectorClick = (sectorKey: string) => {
+    setSelectedSector(sectorKey);
     setSelectedIndustry(null);
+    setViewMode("sector");
     setShowAllCompanies(false);
     setRatingFilter("all");
-    if (viewMode === "industry") {
-      setViewMode("sector");
-    }
-  }, [selectedSector]);
-
-  const handleSectorChange = (newSector: string) => {
-    setSelectedSector(newSector);
-    setViewMode("sector");
+    navigate(`/sectors?sector=${sectorKey}`, { replace: true });
   };
 
-  const handleIndustrySelect = (industryKey: string) => {
-    if (industryKey) {
-      setSelectedIndustry(industryKey);
-      setViewMode("industry");
-    } else {
-      // Empty selection - go back to sector view
-      setSelectedIndustry(null);
-      setViewMode("sector");
-    }
-  };
-
-  // Handle industry click from pie chart or list (auto-navigate)
   const handleIndustryClick = (industryKey: string) => {
     setSelectedIndustry(industryKey);
     setViewMode("industry");
+    navigate(`/sectors?industry=${industryKey}`, { replace: true });
   };
 
   // Helper function to get ticker from company
   const getCompanyTicker = (company: any): string | null => {
-    // Priority: symbol > ticker > extract from name
     if (company.symbol) return company.symbol;
     if (company.ticker) return company.ticker;
 
-    // Common ticker extraction map
     const tickerMap: Record<string, string> = {
       "NVIDIA Corporation": "NVDA",
       "Apple Inc.": "AAPL",
@@ -163,7 +161,6 @@ export const SectorIndustry: React.FC = () => {
     return tickerMap[company.name] || null;
   };
 
-  // Handle company click in table
   const handleCompanyClick = (company: any) => {
     const ticker = getCompanyTicker(company);
     if (ticker) {
@@ -172,7 +169,7 @@ export const SectorIndustry: React.FC = () => {
   };
 
   // Get unique ratings from companies
-  const availableRatings = useMemo(() => {
+  const availableRatings = React.useMemo(() => {
     if (!sectorData?.top_companies) return [];
     const ratings = new Set<string>();
     sectorData.top_companies.forEach((company: any) => {
@@ -184,7 +181,7 @@ export const SectorIndustry: React.FC = () => {
   }, [sectorData]);
 
   // Filter companies by rating
-  const filteredCompanies = useMemo(() => {
+  const filteredCompanies = React.useMemo(() => {
     if (!sectorData?.top_companies) return [];
     if (ratingFilter === "all") return sectorData.top_companies;
     return sectorData.top_companies.filter((company: any) => company.rating === ratingFilter);
@@ -194,8 +191,8 @@ export const SectorIndustry: React.FC = () => {
     if (sectorLoading) {
       return (
         <div className="animate-pulse space-y-4">
-          <div className="h-32 bg-background rounded"></div>
-          <div className="h-48 bg-background rounded"></div>
+          <div className="h-32 bg-surface rounded"></div>
+          <div className="h-48 bg-surface rounded"></div>
         </div>
       );
     }
@@ -444,7 +441,7 @@ export const SectorIndustry: React.FC = () => {
           )}
 
           <p className="text-xs text-text-secondary mt-4 pt-4 border-t border-border">
-            Click any industry to view detailed analytics, or use the industry dropdown above
+            Click any industry to view detailed analytics
           </p>
         </div>
 
@@ -484,7 +481,7 @@ export const SectorIndustry: React.FC = () => {
     if (industryLoading) {
       return (
         <div className="animate-pulse space-y-4">
-          <div className="h-32 bg-background rounded"></div>
+          <div className="h-32 bg-surface rounded"></div>
         </div>
       );
     }
@@ -518,8 +515,8 @@ export const SectorIndustry: React.FC = () => {
             </div>
             <button
               onClick={() => {
-                setViewMode("sector");
                 setSelectedSector(industryData.sector_key);
+                setViewMode("sector");
               }}
               className="text-sm text-primary hover:underline"
             >
@@ -590,64 +587,28 @@ export const SectorIndustry: React.FC = () => {
   };
 
   return (
-    <div className="card">
-      <div className="flex flex-col gap-3 mb-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <h2 className="text-xl font-semibold">Sector & Industry Analysis</h2>
-
-          <div className="flex gap-2">
-            {viewMode === "industry" && (
-              <button
-                onClick={() => setViewMode("sector")}
-                className="btn btn-secondary text-sm"
-              >
-                ← Back to Sectors
-              </button>
-            )}
-          </div>
+    <div className="min-h-screen bg-background">
+      <Header />
+      <div className="max-w-7xl mx-auto p-4 md:p-8">
+        {/* Page Title */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold">Sectors & Industries</h1>
+          <p className="text-text-secondary mt-1">Explore market sectors and industries</p>
         </div>
 
-        {/* Selectors */}
-        <div className="flex flex-col sm:flex-row gap-2">
-          <div className="flex-1">
-            <label className="text-xs text-text-secondary mb-1 block">Sector</label>
-            <select
-              value={selectedSector}
-              onChange={(e) => handleSectorChange(e.target.value)}
-              className="w-full appearance-none bg-background border border-border rounded-lg px-4 py-2 pr-10 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer hover:bg-card transition-colors"
-            >
-              {POPULAR_SECTORS.map((sector) => (
-                <option key={sector.key} value={sector.key}>
-                  {sector.name}
-                </option>
-              ))}
-            </select>
+        {/* Content Area */}
+        {viewMode === "none" && (
+          <div className="card p-8 text-center">
+            <h2 className="text-xl font-semibold mb-2">Select a sector from the header to get started</h2>
+            <p className="text-text-secondary">
+              Hover over "Sectors" in the header to explore detailed sector and industry analytics
+            </p>
           </div>
+        )}
 
-          <div className="flex-1">
-            <label className="text-xs text-text-secondary mb-1 block">
-              Industry {sectorLoading ? "(Loading...)" : `(${availableIndustries.length} available)`}
-            </label>
-            <select
-              value={selectedIndustry || ""}
-              onChange={(e) => handleIndustrySelect(e.target.value)}
-              disabled={sectorLoading || availableIndustries.length === 0}
-              className="w-full appearance-none bg-background border border-border rounded-lg px-4 py-2 pr-10 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer hover:bg-card transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <option value="">
-                {viewMode === "industry" ? "← View All Industries" : "Select an industry..."}
-              </option>
-              {availableIndustries.map((industry: any) => (
-                <option key={industry.key} value={industry.key}>
-                  {industry.name} ({formatPercentNoSign(industry.weight * 100)} weight)
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+        {viewMode === "sector" && renderSectorView()}
+        {viewMode === "industry" && renderIndustryView()}
       </div>
-
-      {viewMode === "sector" ? renderSectorView() : renderIndustryView()}
     </div>
   );
 };

@@ -45,6 +45,13 @@ export function formatPercent(value: number, decimals: number = 2): string {
 }
 
 /**
+ * Format a percentage without sign (for weights, ratios, etc.)
+ */
+export function formatPercentNoSign(value: number, decimals: number = 2): string {
+  return `${value.toFixed(decimals)}%`;
+}
+
+/**
  * Format a date
  */
 export function formatDate(date: string | Date, formatStr: string = "MMM dd, yyyy"): string {

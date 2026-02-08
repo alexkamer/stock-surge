@@ -4,14 +4,53 @@ import { useNavigate } from "react-router-dom";
 import { stockApi } from "../../api/endpoints/stocks";
 import { useDebounce } from "../../hooks/useDebounce";
 import { useWatchlistStore } from "../../store/watchlistStore";
+import { formatPercentNoSign } from "../../lib/formatters";
+import { ChevronDown, ChevronRight } from "lucide-react";
+
+const POPULAR_SECTORS = [
+  { key: "technology", name: "Technology" },
+  { key: "healthcare", name: "Healthcare" },
+  { key: "financial-services", name: "Financial Services" },
+  { key: "consumer-cyclical", name: "Consumer Cyclical" },
+  { key: "industrials", name: "Industrials" },
+  { key: "communication-services", name: "Communication Services" },
+  { key: "energy", name: "Energy" },
+  { key: "basic-materials", name: "Basic Materials" },
+  { key: "consumer-defensive", name: "Consumer Defensive" },
+  { key: "real-estate", name: "Real Estate" },
+  { key: "utilities", name: "Utilities" },
+];
+
+// Mapping of industry names to their API keys
+const INDUSTRY_KEY_MAP: Record<string, string> = {
+  "semiconductors": "semiconductors",
+  "software - infrastructure": "software-infrastructure",
+  "consumer electronics": "consumer-electronics",
+  "software - application": "software-application",
+  "semiconductor equipment & materials": "semiconductor-equipment-materials",
+  "biotechnology": "biotechnology",
+  "drug manufacturers - general": "drug-manufacturers-general",
+  "medical devices": "medical-devices",
+  "healthcare plans": "healthcare-plans",
+  "diagnostics & research": "diagnostics-research",
+  "banks - regional": "banks-regional",
+  "capital markets": "capital-markets",
+  "insurance - diversified": "insurance-diversified",
+  "oil & gas e&p": "oil-gas-exploration",
+  "oil & gas integrated": "oil-gas-integrated",
+  "oil & gas equipment & services": "oil-gas-equipment-services",
+};
 
 export const Header: React.FC = () => {
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
+  const [isSectorsOpen, setIsSectorsOpen] = useState(false);
+  const [hoveredSector, setHoveredSector] = useState<string | null>(null);
   const debouncedQuery = useDebounce(query, 300);
   const { addTicker, hasTicker } = useWatchlistStore();
   const navigate = useNavigate();
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const sectorsRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["stock-search", debouncedQuery],
@@ -20,11 +59,40 @@ export const Header: React.FC = () => {
     retry: false,
   });
 
+  // Fetch sector data for hovered sector (for industries submenu)
+  const { data: hoveredSectorData } = useQuery({
+    queryKey: ["sector", hoveredSector],
+    queryFn: () => stockApi.getSector(hoveredSector!),
+    staleTime: 60 * 60 * 1000, // 1 hour
+    enabled: hoveredSector !== null && isSectorsOpen,
+  });
+
+  // Get industries from hovered sector data
+  const hoveredIndustries = React.useMemo(() => {
+    if (!hoveredSectorData?.industries) return [];
+
+    return hoveredSectorData.industries
+      .map((industry: any) => {
+        const nameLower = industry.name.toLowerCase();
+        const key = INDUSTRY_KEY_MAP[nameLower] || nameLower.replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+        return {
+          key,
+          name: industry.name,
+          weight: industry["market weight"],
+        };
+      })
+      .sort((a: any, b: any) => b.weight - a.weight);
+  }, [hoveredSectorData]);
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);
+      }
+      if (sectorsRef.current && !sectorsRef.current.contains(event.target as Node)) {
+        setIsSectorsOpen(false);
+        setHoveredSector(null);
       }
     };
 
@@ -60,9 +128,86 @@ export const Header: React.FC = () => {
   return (
     <header className="bg-surface border-b border-border sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-4">
-        <div className="flex justify-between items-center">
-          <div className="cursor-pointer" onClick={() => navigate("/")}>
-            <h1 className="text-2xl font-bold">Stock Surge</h1>
+        <div className="flex justify-between items-center gap-6">
+          <div className="flex items-center gap-6">
+            <div className="cursor-pointer" onClick={() => navigate("/")}>
+              <h1 className="text-2xl font-bold">Stock Surge</h1>
+            </div>
+
+            {/* Sectors Dropdown */}
+            <div
+              className="relative"
+              ref={sectorsRef}
+              onMouseEnter={() => setIsSectorsOpen(true)}
+              onMouseLeave={() => {
+                setIsSectorsOpen(false);
+                setHoveredSector(null);
+              }}
+            >
+              <button
+                onClick={() => navigate("/sectors")}
+                className="flex items-center gap-1 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors py-2"
+              >
+                Sectors
+                <ChevronDown className="w-3 h-3" />
+              </button>
+
+              {isSectorsOpen && (
+                <div className="absolute top-full left-0 pt-2 w-56 z-50">
+                  <div className="bg-surface border border-border rounded-lg shadow-lg py-1">
+                    {POPULAR_SECTORS.map((sector) => (
+                      <div
+                        key={sector.key}
+                        className="relative"
+                        onMouseEnter={() => setHoveredSector(sector.key)}
+                        onMouseLeave={() => setHoveredSector(null)}
+                      >
+                        <button
+                          onClick={() => {
+                            navigate(`/sectors?sector=${sector.key}`);
+                            setIsSectorsOpen(false);
+                            setHoveredSector(null);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm hover:bg-background transition-colors flex items-center justify-between"
+                        >
+                          {sector.name}
+                          <ChevronRight className="w-3 h-3 text-text-secondary" />
+                        </button>
+
+                        {/* Industries Submenu */}
+                        {hoveredSector === sector.key && hoveredIndustries.length > 0 && (
+                          <div className="absolute left-full top-0 ml-1 w-72 bg-surface border border-border rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
+                            <div className="p-2 border-b border-border bg-background/50">
+                              <p className="text-xs font-semibold text-text-secondary uppercase">
+                                {sector.name} Industries
+                              </p>
+                            </div>
+                            {hoveredIndustries.map((industry: any) => (
+                              <button
+                                key={industry.key}
+                                onClick={() => {
+                                  navigate(`/sectors?industry=${industry.key}`);
+                                  setIsSectorsOpen(false);
+                                  setHoveredSector(null);
+                                }}
+                                className="w-full text-left px-4 py-2 text-sm hover:bg-background transition-colors border-b border-border/30 last:border-b-0"
+                              >
+                                <div className="flex justify-between items-center gap-2">
+                                  <span className="truncate">{industry.name}</span>
+                                  <span className="text-xs text-text-secondary flex-shrink-0">
+                                    {formatPercentNoSign(industry.weight * 100)}
+                                  </span>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="relative w-80" ref={dropdownRef}>

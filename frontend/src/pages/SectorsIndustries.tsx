@@ -64,6 +64,7 @@ export const SectorsIndustries: React.FC = () => {
   const [companySortBy, setCompanySortBy] = useState<"marketWeight" | "rating">("marketWeight");
   const [companySortOrder, setCompanySortOrder] = useState<"asc" | "desc">("desc");
   const [performancePeriod, setPerformancePeriod] = useState<string>("1mo");
+  const [expandedReports, setExpandedReports] = useState<Set<string>>(new Set());
 
   // Initialize from URL parameters
   useEffect(() => {
@@ -725,9 +726,30 @@ export const SectorsIndustries: React.FC = () => {
 
                     {/* Report Title/Summary */}
                     {report.reportTitle && (
-                      <p className="text-xs text-text-secondary mt-3 line-clamp-2 leading-relaxed">
-                        {report.reportTitle}
-                      </p>
+                      <div className="mt-3">
+                        <p className={`text-xs text-text-secondary leading-relaxed ${expandedReports.has(report.id) ? '' : 'line-clamp-2'}`}>
+                          {report.reportTitle}
+                        </p>
+                        {report.reportTitle.length > 150 && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setExpandedReports(prev => {
+                                const newSet = new Set(prev);
+                                if (newSet.has(report.id)) {
+                                  newSet.delete(report.id);
+                                } else {
+                                  newSet.add(report.id);
+                                }
+                                return newSet;
+                              });
+                            }}
+                            className="text-xs text-primary hover:underline mt-1 font-medium"
+                          >
+                            {expandedReports.has(report.id) ? 'Show Less' : 'See More'}
+                          </button>
+                        )}
+                      </div>
                     )}
 
                     {/* Hover indicator */}

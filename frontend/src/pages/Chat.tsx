@@ -318,35 +318,39 @@ export const Chat: React.FC = () => {
             {messages.map((message, index) => (
               <div
                 key={message.id || index}
-                className={`flex ${
-                  message.role === "user" ? "justify-end" : "justify-start"
-                }`}
+                className={message.role === "user" ? "flex justify-end" : "w-full"}
               >
-                <div
-                  className={`max-w-[80%] rounded-lg p-4 ${
-                    message.role === "user"
-                      ? "bg-positive text-background"
-                      : "bg-surface border border-border"
-                  }`}
-                >
-                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                </div>
+                {message.role === "user" ? (
+                  <div className="max-w-[80%] rounded-lg p-4 bg-positive text-background">
+                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  </div>
+                ) : (
+                  <div className="w-full py-6 px-4 bg-surface/30">
+                    <div className="max-w-3xl mx-auto">
+                      <p className="text-sm whitespace-pre-wrap text-text-primary">
+                        {message.content}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
 
             {/* Streaming message */}
             {isLoading && streamingContent && (
-              <div className="flex justify-start">
-                <div className="max-w-[80%] rounded-lg p-4 bg-surface border border-border">
-                  <p className="text-sm whitespace-pre-wrap">{streamingContent}</p>
+              <div className="w-full py-6 px-4 bg-surface/30">
+                <div className="max-w-3xl mx-auto">
+                  <p className="text-sm whitespace-pre-wrap text-text-primary">
+                    {streamingContent}
+                  </p>
                 </div>
               </div>
             )}
 
             {/* Loading indicator */}
             {isLoading && !streamingContent && (
-              <div className="flex justify-start">
-                <div className="max-w-[80%] rounded-lg p-4 bg-surface border border-border">
+              <div className="w-full py-6 px-4 bg-surface/30">
+                <div className="max-w-3xl mx-auto">
                   <div className="flex items-center gap-2">
                     <div className="flex gap-1">
                       <div

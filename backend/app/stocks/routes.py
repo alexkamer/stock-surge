@@ -17,6 +17,7 @@ from .service import (
     get_stock_dividends, get_generic_stock_data
 )
 from .article_scraper import article_scraper
+from .technical_indicators import get_technical_indicators
 from ..config import CACHE_TTL_SHORT, CACHE_TTL_MEDIUM, CACHE_TTL_LONG
 
 # Create router
@@ -320,6 +321,37 @@ async def get_batch_history(request: Request, body: TickersHistoryRequest):
             results[ticker] = {"error": "Failed to fetch data"}
     
     return {"tickers": body.tickers, "period": body.period, "interval": body.interval, "data": results}
+
+
+# Technical Indicators endpoint
+@router.get("/stock/{ticker}/indicators")
+@limiter.limit("20/minute")
+async def get_indicators(
+    request: Request,
+    ticker: str,
+    period: str = "3mo"
+):
+    """
+    Get technical indicators for a stock
+
+    Args:
+        ticker: Stock ticker symbol
+        period: Data period (1mo, 3mo, 6mo, 1y, 2y, 5y)
+
+    Returns:
+        Dictionary with RSI, MACD, Moving Averages, Bollinger Bands, etc.
+    """
+    try:
+        indicators = get_technical_indicators(ticker.upper(), period)
+
+        if "error" in indicators:
+            raise HTTPException(status_code=404, detail=indicators["error"])
+
+        return indicators
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # NOTE: This file contains the most common 20+ endpoints

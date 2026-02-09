@@ -72,6 +72,9 @@ export const chatApi = {
     // Get the current token
     const token = getAccessToken();
 
+    // Get user's timezone
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
     // Use fetch with streaming
     const controller = new AbortController();
 
@@ -80,6 +83,7 @@ export const chatApi = {
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${token}`,
+        "X-Timezone": timezone,
       },
       body: JSON.stringify({ content }),
       signal: controller.signal,
@@ -166,11 +170,15 @@ export const chatApi = {
     // Get the current token (may be null for anonymous users)
     const token = getAccessToken();
 
+    // Get user's timezone
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
     // Use fetch with streaming
     const controller = new AbortController();
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
+      "X-Timezone": timezone,
     };
 
     if (token) {

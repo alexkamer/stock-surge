@@ -3,7 +3,7 @@ Chat API endpoints
 """
 
 import json
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
@@ -170,6 +170,7 @@ async def delete_session(
 async def send_message(
     session_id: UUID,
     message: MessageCreate,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -225,6 +226,9 @@ async def send_message(
         if msg.role in ["user", "assistant"]
     ]
 
+    # Get user's timezone from header (default to UTC)
+    user_timezone = request.headers.get("X-Timezone", "UTC")
+
     # Get user's watchlist
     watchlist_items = (
         db.query(Watchlist.ticker)
@@ -242,7 +246,8 @@ async def send_message(
             async for chunk in chat_service.chat_stream(
                 messages=message_list,
                 watchlist=watchlist,
-                include_market=True
+                include_market=True,
+                user_timezone=user_timezone
             ):
                 assistant_content += chunk
                 # Send as SSE format
@@ -306,6 +311,7 @@ async def get_context(
 @router.post("/anonymous/message")
 async def send_anonymous_message(
     message: MessageCreate,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: Optional[User] = Depends(get_current_user_optional)
 ):
@@ -313,6 +319,9 @@ async def send_anonymous_message(
     Send a message without session persistence (for anonymous users).
     Returns a streaming response.
     """
+
+    # Get user's timezone from header (default to UTC)
+    user_timezone = request.headers.get("X-Timezone", "UTC")
 
     # Get user's watchlist if authenticated
     watchlist = []
@@ -331,7 +340,8 @@ async def send_anonymous_message(
             async for chunk in chat_service.chat_stream(
                 messages=[{"role": "user", "content": message.content}],
                 watchlist=watchlist,
-                include_market=True
+                include_market=True,
+                user_timezone=user_timezone
             ):
                 # Send as SSE format
                 yield f"data: {json.dumps({'content': chunk})}\n\n"

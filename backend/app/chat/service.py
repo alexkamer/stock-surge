@@ -31,9 +31,57 @@ class ChatService:
         except Exception:
             return False
 
-    def _build_system_prompt(self, context: str = "") -> str:
+    def _build_system_prompt(self, context: str = "", user_timezone: str = "UTC") -> str:
         """Build the system prompt with context"""
-        base_prompt = """You are a knowledgeable stock market assistant for Stock Surge, a stock analysis platform.
+        from datetime import datetime, timezone
+        import pytz
+
+        current_time_utc = datetime.now(timezone.utc)
+
+        # Convert to user's timezone
+        try:
+            user_tz = pytz.timezone(user_timezone)
+            current_time = current_time_utc.astimezone(user_tz)
+            tz_name = current_time.strftime("%Z")  # e.g., "EST", "PST"
+        except Exception:
+            # Fall back to UTC if timezone is invalid
+            current_time = current_time_utc
+            tz_name = "UTC"
+            user_timezone = "UTC"
+
+        current_date_str = current_time.strftime("%A, %B %d, %Y")
+        current_time_str = current_time.strftime("%I:%M %p %Z")  # e.g., "03:45 PM EST"
+        day_of_week = current_time.strftime("%A")
+
+        # Determine market status (US market hours: 9:30 AM - 4:00 PM ET = 14:30 - 21:00 UTC)
+        hour_utc = current_time_utc.hour
+        is_weekend = day_of_week in ["Saturday", "Sunday"]
+
+        if is_weekend:
+            market_status = "CLOSED (Weekend)"
+        elif hour_utc < 9:  # Before 4 AM ET
+            market_status = "CLOSED (Pre-market hasn't opened)"
+        elif 9 <= hour_utc < 14:  # 4 AM - 9:30 AM ET
+            market_status = "PRE-MARKET HOURS"
+        elif 14 <= hour_utc < 21:  # 9:30 AM - 4 PM ET
+            market_status = "OPEN (Regular trading hours)"
+        elif 21 <= hour_utc < 24 or hour_utc < 1:  # 4 PM - 8 PM ET
+            market_status = "AFTER-HOURS TRADING"
+        else:
+            market_status = "CLOSED"
+
+        base_prompt = f"""You are a knowledgeable stock market assistant for Stock Surge, a stock analysis platform.
+
+CURRENT DATE AND TIME: {current_date_str} at {current_time_str}
+USER'S TIMEZONE: {user_timezone}
+US MARKET STATUS: {market_status}
+
+Important: When discussing time-sensitive information, you now know today's date and market status in the user's local timezone. Use this for context like:
+- "Today is {day_of_week}, and it's currently {current_time_str}"
+- "The market is {market_status.lower()}"
+- "Since it's {market_status.lower()}, the prices shown are [real-time/last close/etc.]"
+- When referencing times, use the user's timezone ({tz_name})
+- Reference whether data is from today or previous trading day
 
 Your role is to:
 1. Answer questions about stocks, markets, and investing
@@ -41,6 +89,16 @@ Your role is to:
 3. Compare multiple stocks and provide insights
 4. Explain financial concepts in clear, simple terms
 5. Help users make informed investment decisions
+
+CRITICAL - Accuracy Rules:
+- ONLY use data from the CURRENT CONTEXT section below
+- NEVER make up stock prices, dates, or technical indicators
+- NEVER make up timestamps or say "as of [date]" unless the exact date is in the context
+- If specific data is not in the context, say "I don't have [indicator name] data available"
+- Only state facts that are explicitly in the context data
+- Do NOT add interpretations that aren't based on the numbers (like "growing interest from investors")
+- If a calculation seems wrong, just report the numbers without interpreting them
+- When context is missing key data, acknowledge it: "The technical indicators show [what's available], but I don't have [what's missing]"
 
 Guidelines:
 - Always use the provided market data when available
@@ -58,6 +116,12 @@ Formatting:
 - Use `inline code` for ticker symbols when appropriate
 - Format prices as **$XXX.XX** and percentages as **X.XX%**
 - Keep responses well-structured and easy to scan
+
+Response Structure (for stock analysis):
+1. **Current Price & Change** (from context data)
+2. **Technical Analysis** (if indicators provided)
+3. **Key Insights** (based on the data)
+4. **Data Sources** (cite what data you used)
 
 """
         if context:
@@ -188,7 +252,8 @@ Respond with just the JSON array, nothing else:"""
         self,
         messages: List[Dict[str, str]],
         watchlist: Optional[List[str]] = None,
-        include_market: bool = True
+        include_market: bool = True,
+        user_timezone: str = "UTC"
     ) -> AsyncGenerator[str, None]:
         """
         Stream chat responses from Ollama
@@ -197,6 +262,7 @@ Respond with just the JSON array, nothing else:"""
             messages: List of message dicts with 'role' and 'content'
             watchlist: User's watchlist tickers
             include_market: Whether to include market overview in context
+            user_timezone: User's timezone (e.g., "America/New_York", "Europe/London")
 
         Yields:
             String chunks of the AI response
@@ -206,8 +272,8 @@ Respond with just the JSON array, nothing else:"""
         last_message = messages[-1]["content"] if messages else ""
         context = await self._build_context(last_message, watchlist, include_market)
 
-        # Build system prompt with context
-        system_prompt = self._build_system_prompt(context)
+        # Build system prompt with context and user timezone
+        system_prompt = self._build_system_prompt(context, user_timezone)
 
         # Prepare messages with system prompt
         full_messages = [

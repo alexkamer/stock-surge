@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Send, Plus, MessageSquare, TrendingUp, Trash2 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import { chatApi } from "../api/endpoints/chat";
 import type { ChatMessage as ChatMessageType } from "../api/endpoints/chat";
 
@@ -326,10 +327,93 @@ export const Chat: React.FC = () => {
                   </div>
                 ) : (
                   <div className="w-full py-6 px-4 bg-surface/30">
-                    <div className="max-w-3xl mx-auto">
-                      <p className="text-sm whitespace-pre-wrap text-text-primary">
+                    <div className="max-w-3xl mx-auto prose prose-invert prose-sm max-w-none">
+                      <ReactMarkdown
+                        components={{
+                          // Style headings
+                          h1: ({ children }) => (
+                            <h1 className="text-xl font-bold text-text-primary mb-3">
+                              {children}
+                            </h1>
+                          ),
+                          h2: ({ children }) => (
+                            <h2 className="text-lg font-bold text-text-primary mb-2">
+                              {children}
+                            </h2>
+                          ),
+                          h3: ({ children }) => (
+                            <h3 className="text-base font-semibold text-text-primary mb-2">
+                              {children}
+                            </h3>
+                          ),
+                          // Style paragraphs
+                          p: ({ children }) => (
+                            <p className="text-sm text-text-primary mb-3 leading-relaxed">
+                              {children}
+                            </p>
+                          ),
+                          // Style lists
+                          ul: ({ children }) => (
+                            <ul className="text-sm text-text-primary mb-3 list-disc list-inside space-y-1">
+                              {children}
+                            </ul>
+                          ),
+                          ol: ({ children }) => (
+                            <ol className="text-sm text-text-primary mb-3 list-decimal list-inside space-y-1">
+                              {children}
+                            </ol>
+                          ),
+                          li: ({ children }) => (
+                            <li className="text-sm text-text-primary">{children}</li>
+                          ),
+                          // Style code blocks
+                          code: ({ inline, children, ...props }: any) =>
+                            inline ? (
+                              <code
+                                className="bg-background px-1.5 py-0.5 rounded text-xs font-mono text-positive"
+                                {...props}
+                              >
+                                {children}
+                              </code>
+                            ) : (
+                              <code
+                                className="block bg-background p-3 rounded text-xs font-mono overflow-x-auto mb-3"
+                                {...props}
+                              >
+                                {children}
+                              </code>
+                            ),
+                          // Style links
+                          a: ({ children, href }) => (
+                            <a
+                              href={href}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-positive hover:underline"
+                            >
+                              {children}
+                            </a>
+                          ),
+                          // Style blockquotes
+                          blockquote: ({ children }) => (
+                            <blockquote className="border-l-4 border-positive pl-4 italic text-text-secondary mb-3">
+                              {children}
+                            </blockquote>
+                          ),
+                          // Style strong/bold
+                          strong: ({ children }) => (
+                            <strong className="font-semibold text-text-primary">
+                              {children}
+                            </strong>
+                          ),
+                          // Style emphasis/italic
+                          em: ({ children }) => (
+                            <em className="italic text-text-primary">{children}</em>
+                          ),
+                        }}
+                      >
                         {message.content}
-                      </p>
+                      </ReactMarkdown>
                     </div>
                   </div>
                 )}
@@ -339,10 +423,85 @@ export const Chat: React.FC = () => {
             {/* Streaming message */}
             {isLoading && streamingContent && (
               <div className="w-full py-6 px-4 bg-surface/30">
-                <div className="max-w-3xl mx-auto">
-                  <p className="text-sm whitespace-pre-wrap text-text-primary">
+                <div className="max-w-3xl mx-auto prose prose-invert prose-sm max-w-none">
+                  <ReactMarkdown
+                    components={{
+                      h1: ({ children }) => (
+                        <h1 className="text-xl font-bold text-text-primary mb-3">
+                          {children}
+                        </h1>
+                      ),
+                      h2: ({ children }) => (
+                        <h2 className="text-lg font-bold text-text-primary mb-2">
+                          {children}
+                        </h2>
+                      ),
+                      h3: ({ children }) => (
+                        <h3 className="text-base font-semibold text-text-primary mb-2">
+                          {children}
+                        </h3>
+                      ),
+                      p: ({ children }) => (
+                        <p className="text-sm text-text-primary mb-3 leading-relaxed">
+                          {children}
+                        </p>
+                      ),
+                      ul: ({ children }) => (
+                        <ul className="text-sm text-text-primary mb-3 list-disc list-inside space-y-1">
+                          {children}
+                        </ul>
+                      ),
+                      ol: ({ children }) => (
+                        <ol className="text-sm text-text-primary mb-3 list-decimal list-inside space-y-1">
+                          {children}
+                        </ol>
+                      ),
+                      li: ({ children }) => (
+                        <li className="text-sm text-text-primary">{children}</li>
+                      ),
+                      code: ({ inline, children, ...props }: any) =>
+                        inline ? (
+                          <code
+                            className="bg-background px-1.5 py-0.5 rounded text-xs font-mono text-positive"
+                            {...props}
+                          >
+                            {children}
+                          </code>
+                        ) : (
+                          <code
+                            className="block bg-background p-3 rounded text-xs font-mono overflow-x-auto mb-3"
+                            {...props}
+                          >
+                            {children}
+                          </code>
+                        ),
+                      a: ({ children, href }) => (
+                        <a
+                          href={href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-positive hover:underline"
+                        >
+                          {children}
+                        </a>
+                      ),
+                      blockquote: ({ children }) => (
+                        <blockquote className="border-l-4 border-positive pl-4 italic text-text-secondary mb-3">
+                          {children}
+                        </blockquote>
+                      ),
+                      strong: ({ children }) => (
+                        <strong className="font-semibold text-text-primary">
+                          {children}
+                        </strong>
+                      ),
+                      em: ({ children }) => (
+                        <em className="italic text-text-primary">{children}</em>
+                      ),
+                    }}
+                  >
                     {streamingContent}
-                  </p>
+                  </ReactMarkdown>
                 </div>
               </div>
             )}

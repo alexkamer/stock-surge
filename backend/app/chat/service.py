@@ -51,6 +51,14 @@ Guidelines:
 - When mentioning stocks, use ticker symbols (e.g., $AAPL)
 - Never give specific buy/sell advice - provide analysis instead
 
+Formatting:
+- Use **bold** for important metrics and key points
+- Use bullet points for lists of information
+- Use headings (##) to organize longer responses
+- Use `inline code` for ticker symbols when appropriate
+- Format prices as **$XXX.XX** and percentages as **X.XX%**
+- Keep responses well-structured and easy to scan
+
 """
         if context:
             base_prompt += f"\n\nCURRENT CONTEXT:\n{context}\n"

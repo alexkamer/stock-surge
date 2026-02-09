@@ -5,7 +5,7 @@ import { stockApi } from "../../api/endpoints/stocks";
 import { useDebounce } from "../../hooks/useDebounce";
 import { useWatchlistStore } from "../../store/watchlistStore";
 import { formatPercentNoSign } from "../../lib/formatters";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, MessageSquare } from "lucide-react";
 
 const POPULAR_SECTORS = [
   { key: "technology", name: "Technology" },
@@ -208,6 +208,15 @@ export const Header: React.FC = () => {
                 </div>
               )}
             </div>
+
+            {/* Chat Link */}
+            <button
+              onClick={() => navigate("/chat")}
+              className="flex items-center gap-2 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors py-2"
+            >
+              <MessageSquare className="w-4 h-4" />
+              Chat
+            </button>
           </div>
 
           <div className="relative w-80" ref={dropdownRef}>

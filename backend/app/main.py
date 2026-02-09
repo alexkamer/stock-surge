@@ -21,6 +21,7 @@ from .stocks.routes import router as stocks_router
 from .market.routes import router as market_router
 from .reddit.routes import router as reddit_router
 from .ai.routes import router as ai_router
+from .chat.routes import router as chat_router
 from .ws.handlers import websocket_live_prices
 
 # Configure yfinance for optimal performance
@@ -73,6 +74,7 @@ app.include_router(stocks_router)
 app.include_router(market_router)
 app.include_router(reddit_router)
 app.include_router(ai_router)
+app.include_router(chat_router)
 
 # WebSocket endpoint
 @app.websocket("/ws/live/{tickers}")
@@ -94,6 +96,7 @@ async def root():
             "users": "/user (watchlist, preferences)",
             "stocks": "/stock/{ticker} (price, info, history, dividends, financials, etc.)",
             "market": "/market, /sector, /industry",
+            "chat": "/chat (sessions, messages, streaming AI responses)",
             "websocket": "/ws/live/{tickers}",
             "docs": "/docs (Swagger UI)",
             "redoc": "/redoc (ReDoc)"

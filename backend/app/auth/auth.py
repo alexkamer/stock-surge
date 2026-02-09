@@ -94,6 +94,27 @@ async def get_current_user(
     return user
 
 
+async def get_current_user_optional(
+    db: Session = Depends(get_db),
+    token: Optional[str] = Depends(OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False))
+) -> Optional[models.User]:
+    """Get current authenticated user from token, or None if not authenticated"""
+    if token is None:
+        return None
+
+    try:
+        payload = verify_token(token)
+        email: str = payload.get("sub")
+
+        if email is None:
+            return None
+
+        user = db.query(models.User).filter(models.User.email == email).first()
+        return user
+    except HTTPException:
+        return None
+
+
 def authenticate_user(db: Session, email: str, password: str) -> Optional[models.User]:
     """Authenticate user with email and password"""
     user = db.query(models.User).filter(models.User.email == email).first()

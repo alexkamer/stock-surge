@@ -51,8 +51,10 @@ export interface UpdatePositionRequest {
 export interface PerformanceDataPoint {
   date: string;
   value: number;
-  pl: number;
-  pl_percent: number;
+  pl: number;  // P/L relative to start of period
+  pl_percent: number;  // P/L % relative to start of period
+  alltime_pl: number;  // All-time P/L vs purchase price
+  alltime_pl_percent: number;  // All-time P/L % vs purchase price
 }
 
 export interface PerformanceResponse {

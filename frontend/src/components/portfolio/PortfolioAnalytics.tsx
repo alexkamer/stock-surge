@@ -234,18 +234,18 @@ export default function PortfolioAnalytics() {
           <div className="text-2xl lg:text-3xl font-bold text-white mb-2">
             {formatCurrency(latestPerformance.value)}
           </div>
-          <div className={`flex items-center gap-1.5 text-sm font-medium ${latestPerformance.pl >= 0 ? "text-green-400" : "text-red-400"}`}>
-            {latestPerformance.pl >= 0 ? (
+          <div className={`flex items-center gap-1.5 text-sm font-medium ${latestPerformance.alltime_pl >= 0 ? "text-green-400" : "text-red-400"}`}>
+            {latestPerformance.alltime_pl >= 0 ? (
               <TrendingUp className="w-3.5 h-3.5" />
             ) : (
               <TrendingDown className="w-3.5 h-3.5" />
             )}
             <span>
-              {formatCurrency(latestPerformance.pl)}
+              {formatCurrency(latestPerformance.alltime_pl)}
             </span>
           </div>
-          <div className={`text-xs mt-1 ${latestPerformance.pl >= 0 ? "text-green-400/70" : "text-red-400/70"}`}>
-            {formatPercent(latestPerformance.pl_percent)} all time
+          <div className={`text-xs mt-1 ${latestPerformance.alltime_pl >= 0 ? "text-green-400/70" : "text-red-400/70"}`}>
+            {formatPercent(latestPerformance.alltime_pl_percent)} all time
           </div>
         </div>
 
@@ -414,8 +414,8 @@ export default function PortfolioAnalytics() {
                 <TrendingUp className="w-5 h-5 text-green-400" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-white">Profit & Loss Trend</h3>
-                <p className="text-sm text-gray-400">Visualize gains and losses over time</p>
+                <h3 className="text-lg font-semibold text-white">Period Profit & Loss</h3>
+                <p className="text-sm text-gray-400">Gains/losses relative to period start</p>
               </div>
             </div>
             <ResponsiveContainer width="100%" height={350}>

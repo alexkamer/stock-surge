@@ -242,9 +242,12 @@ async def get_portfolio_analytics(
             for date in hist.index
         ))
 
+        # Calculate initial portfolio value (at start of period) for P/L calculation
+        initial_portfolio_value = None
+
         for date in all_dates:
             total_value = 0.0
-            total_cost_basis = 0.0
+            total_cost_basis = 0.0  # Based on actual purchase price
 
             for pos in all_positions:
                 if pos.ticker in ticker_history:
@@ -266,15 +269,26 @@ async def get_portfolio_analytics(
                     except Exception:
                         continue
 
-            if total_cost_basis > 0:
-                pl = total_value - total_cost_basis
-                pl_percent = (pl / total_cost_basis * 100)
+            # Set initial value on first date for period-relative P/L
+            if initial_portfolio_value is None and total_value > 0:
+                initial_portfolio_value = total_value
+
+            if initial_portfolio_value and initial_portfolio_value > 0:
+                # P/L relative to start of period (shows gains/losses during this timeframe)
+                period_pl = total_value - initial_portfolio_value
+                period_pl_percent = (period_pl / initial_portfolio_value * 100)
+
+                # Also calculate all-time P/L for reference
+                alltime_pl = total_value - total_cost_basis
+                alltime_pl_percent = (alltime_pl / total_cost_basis * 100) if total_cost_basis > 0 else 0.0
 
                 performance_data.append({
                     "date": date.strftime("%Y-%m-%d"),
                     "value": round(total_value, 2),
-                    "pl": round(pl, 2),
-                    "pl_percent": round(pl_percent, 2)
+                    "pl": round(period_pl, 2),  # Period P/L (relative to start)
+                    "pl_percent": round(period_pl_percent, 2),
+                    "alltime_pl": round(alltime_pl, 2),  # All-time P/L (vs purchase price)
+                    "alltime_pl_percent": round(alltime_pl_percent, 2)
                 })
 
     # Calculate sector allocation (parallel processing)

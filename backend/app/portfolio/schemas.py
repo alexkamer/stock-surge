@@ -62,8 +62,10 @@ class PerformanceDataPoint(BaseModel):
     """Single data point in portfolio performance history"""
     date: str
     value: float
-    pl: float
-    pl_percent: float
+    pl: float  # P/L relative to start of period
+    pl_percent: float  # P/L % relative to start of period
+    alltime_pl: float  # All-time P/L vs purchase price
+    alltime_pl_percent: float  # All-time P/L % vs purchase price
 
 
 class PerformanceResponse(BaseModel):

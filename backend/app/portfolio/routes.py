@@ -35,6 +35,61 @@ router = APIRouter(prefix="/portfolio", tags=["portfolio"])
 limiter = Limiter(key_func=get_remote_address)
 
 
+@router.get("/summary/schwab")
+@limiter.limit("60/minute")
+async def get_schwab_portfolio_summary(
+    request: Request,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get portfolio summary using Schwab's actual reported P/L values"""
+    try:
+        schwab_data = get_schwab_accounts()
+        if not schwab_data or "accounts" not in schwab_data:
+            return {
+                "total_value": 0.0,
+                "total_day_pl": 0.0,
+                "total_day_pl_percent": 0.0,
+                "total_unrealized_pl": 0.0,
+                "positions": []
+            }
+
+        total_value = 0.0
+        total_day_pl = 0.0
+        total_unrealized_pl = 0.0
+        positions = []
+
+        for account in schwab_data["accounts"]:
+            if "positions" in account:
+                for pos in account["positions"]:
+                    total_value += pos.get("currentValue", 0)
+                    total_day_pl += pos.get("currentDayProfitLoss", 0)
+                    total_unrealized_pl += pos.get("longOpenProfitLoss", 0)
+
+                    positions.append({
+                        "symbol": pos.get("symbol"),
+                        "quantity": pos.get("quantity"),
+                        "current_value": pos.get("currentValue"),
+                        "day_pl": pos.get("currentDayProfitLoss"),
+                        "day_pl_percent": pos.get("currentDayProfitLossPercentage"),
+                        "total_pl": pos.get("longOpenProfitLoss"),
+                    })
+
+        total_day_pl_percent = (total_day_pl / (total_value - total_day_pl) * 100) if (total_value - total_day_pl) > 0 else 0.0
+
+        return {
+            "total_value": round(total_value, 2),
+            "total_day_pl": round(total_day_pl, 2),
+            "total_day_pl_percent": round(total_day_pl_percent, 2),
+            "total_unrealized_pl": round(total_unrealized_pl, 2),
+            "positions": positions,
+            "source": "schwab_reported"
+        }
+    except Exception as e:
+        logger.error(f"Error fetching Schwab portfolio summary: {e}")
+        raise HTTPException(status_code=500, detail=f"Error fetching Schwab data: {str(e)}")
+
+
 @router.get("/", response_model=PortfolioSummary)
 @limiter.limit("60/minute")
 async def get_portfolio(
@@ -150,7 +205,11 @@ async def get_portfolio_analytics(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get portfolio analytics including performance, sector allocation, and top performers"""
+    """Get portfolio analytics including performance, sector allocation, and top performers
+
+    NOTE: For Schwab accounts, day-to-day P/L uses Schwab's reported values.
+    Historical trends use yfinance data which may not perfectly match Schwab's calculations.
+    """
     # Get manual portfolio positions
     positions = db.query(models.Portfolio).filter(
         models.Portfolio.user_id == current_user.id

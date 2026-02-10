@@ -263,6 +263,11 @@ def get_schwab_accounts() -> Dict[str, Any]:
                     "currentValue": pos.get("marketValue", 0),
                     "instrument_type": instrument.get("assetType"),
                     "cusip": instrument.get("cusip"),
+                    # P/L data from Schwab
+                    "currentDayProfitLoss": pos.get("currentDayProfitLoss", 0),
+                    "currentDayProfitLossPercentage": pos.get("currentDayProfitLossPercentage", 0),
+                    "longOpenProfitLoss": pos.get("longOpenProfitLoss", 0),
+                    "previousSessionLongQuantity": pos.get("previousSessionLongQuantity", 0),
                 })
 
         processed_accounts.append({

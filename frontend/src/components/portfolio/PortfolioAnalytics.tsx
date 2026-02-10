@@ -17,6 +17,7 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  ReferenceLine,
 } from "recharts";
 import { TrendingUp, TrendingDown, PieChartIcon, BarChart3 } from "lucide-react";
 
@@ -203,9 +204,13 @@ export default function PortfolioAnalytics() {
         <ResponsiveContainer width="100%" height={300}>
           <AreaChart data={analytics.performance.data}>
             <defs>
-              <linearGradient id="plGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+              <linearGradient id="plGradientPositive" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
+              </linearGradient>
+              <linearGradient id="plGradientNegative" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#ef4444" stopOpacity={0.05} />
+                <stop offset="95%" stopColor="#ef4444" stopOpacity={0.4} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="#333" opacity={0.3} />
@@ -236,13 +241,35 @@ export default function PortfolioAnalytics() {
                 return [value, name];
               }}
             />
-            <Area
-              type="monotone"
-              dataKey="pl"
-              stroke="#10b981"
-              strokeWidth={2}
-              fill="url(#plGradient)"
-            />
+            <ReferenceLine y={0} stroke="#666" strokeDasharray="3 3" />
+            {analytics.performance.data.some((d) => d.pl >= 0) && (
+              <Area
+                type="monotone"
+                dataKey="pl"
+                stroke="#10b981"
+                strokeWidth={2}
+                fill="url(#plGradientPositive)"
+                isAnimationActive={false}
+                data={analytics.performance.data.map((d) => ({
+                  ...d,
+                  pl: d.pl >= 0 ? d.pl : 0,
+                }))}
+              />
+            )}
+            {analytics.performance.data.some((d) => d.pl < 0) && (
+              <Area
+                type="monotone"
+                dataKey="pl"
+                stroke="#ef4444"
+                strokeWidth={2}
+                fill="url(#plGradientNegative)"
+                isAnimationActive={false}
+                data={analytics.performance.data.map((d) => ({
+                  ...d,
+                  pl: d.pl < 0 ? d.pl : 0,
+                }))}
+              />
+            )}
           </AreaChart>
         </ResponsiveContainer>
       </div>

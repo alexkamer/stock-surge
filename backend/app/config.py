@@ -36,8 +36,10 @@ REFRESH_TOKEN_EXPIRE_DAYS = 7
 # CORS Configuration
 CORS_ORIGINS = [
     "http://localhost:5173",  # Vite dev server
+    "http://localhost:5174",  # Vite dev server (alternative port)
     "http://localhost:3000",  # Alternative frontend port
     "http://127.0.0.1:5173",
+    "http://127.0.0.1:5174",
     "http://127.0.0.1:3000",
 ]
 

@@ -18,6 +18,9 @@ wheels/
 .env.local
 .env.production
 
+# Schwab API tokens
+tokens.json
+
 # Frontend
 frontend/node_modules/
 frontend/dist/

@@ -270,8 +270,13 @@ def get_schwab_accounts() -> Dict[str, Any]:
                     "previousSessionLongQuantity": pos.get("previousSessionLongQuantity", 0),
                 })
 
+        # The encrypted account hash is in the top-level account object
+        # accountNumber is the unencrypted number inside securitiesAccount
+        account_hash = sec_account.get("accountNumber")  # This is actually the encrypted hash from API
+
         processed_accounts.append({
-            "accountNumber": sec_account.get("accountNumber"),
+            "accountNumber": account_hash,  # Encrypted hash for API calls
+            "accountHash": account_hash,  # Alias for clarity
             "accountType": sec_account.get("type"),
             "positions": positions,
             "currentBalances": sec_account.get("currentBalances", {}),

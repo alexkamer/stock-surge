@@ -195,7 +195,7 @@ export default function PortfolioAnalytics() {
             <p className="text-gray-400 text-sm">Track your portfolio performance over time</p>
             <div className="mt-2 px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-lg inline-block">
               <p className="text-xs text-blue-200">
-                <span className="font-semibold">✓ Schwab Data:</span> Current values and P/L use your broker's actual reported figures for accuracy.
+                <span className="font-semibold">✓ Schwab Data:</span> Current values and P/L use your broker's actual reported figures. Closed positions may not be included if transactions API is unavailable.
               </p>
             </div>
           </div>

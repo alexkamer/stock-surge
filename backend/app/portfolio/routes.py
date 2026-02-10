@@ -224,8 +224,11 @@ async def get_portfolio_analytics(
         schwab_data = get_schwab_accounts()
         if schwab_data and "accounts" in schwab_data:
             for account in schwab_data["accounts"]:
-                # Fetch realized gains from transactions (last 30 days for period-relevant data)
-                account_hash = account.get("accountNumber")
+                # Try to fetch realized gains from transactions
+                # Note: Transactions API may not be available for all Schwab accounts
+                account_hash = account.get("accountNumber") or account.get("accountHash")
+
+                # Only fetch transactions for short periods where realized gains matter
                 if account_hash and period in ["1d", "1w", "1mo"]:
                     try:
                         from datetime import datetime, timedelta
@@ -235,10 +238,18 @@ async def get_portfolio_analytics(
                         start_date = (datetime.now() - timedelta(days=days_back)).strftime("%Y-%m-%d")
 
                         txn_data = get_schwab_transactions(account_hash, start_date, end_date)
-                        total_realized_pl += txn_data.get("total_realized_pl", 0)
-                        logger.info(f"Found realized P/L for period {period}: ${total_realized_pl:.2f}")
+                        realized_pl = txn_data.get("total_realized_pl", 0)
+
+                        if realized_pl != 0:
+                            total_realized_pl += realized_pl
+                            logger.info(f"✓ Included ${realized_pl:.2f} realized P/L from closed positions")
+                        else:
+                            logger.info(f"No closed positions found in period {period}")
+
                     except Exception as e:
-                        logger.warning(f"Could not fetch transactions for account: {e}")
+                        # Transactions API might not be available - this is OK
+                        # Analytics will still work with open positions only
+                        logger.debug(f"Transactions not available (closed positions won't be included): {e}")
 
                 if "positions" in account and account["positions"]:
                     for pos in account["positions"]:

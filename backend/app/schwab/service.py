@@ -245,6 +245,17 @@ def get_schwab_accounts() -> Dict[str, Any]:
         return {"accounts": cached, "cached": True}
 
     client = get_schwab_client()
+
+    # First, get account numbers with hash values
+    account_numbers = client.get_account_numbers()
+    account_hash_map = {
+        acc.get("accountNumber"): acc.get("hashValue")
+        for acc in account_numbers
+        if acc.get("accountNumber") and acc.get("hashValue")
+    }
+    logger.info(f"Fetched {len(account_hash_map)} account hash mappings")
+
+    # Then get accounts with positions
     accounts = client.get_accounts(include_positions=True)
 
     # Process and flatten positions from each account
@@ -270,13 +281,13 @@ def get_schwab_accounts() -> Dict[str, Any]:
                     "previousSessionLongQuantity": pos.get("previousSessionLongQuantity", 0),
                 })
 
-        # The encrypted account hash is in the top-level account object
-        # accountNumber is the unencrypted number inside securitiesAccount
-        account_hash = sec_account.get("accountNumber")  # This is actually the encrypted hash from API
+        # Get the proper hash value for this account
+        account_number = sec_account.get("accountNumber")
+        account_hash = account_hash_map.get(account_number, account_number)  # Fallback to number if hash not found
 
         processed_accounts.append({
-            "accountNumber": account_hash,  # Encrypted hash for API calls
-            "accountHash": account_hash,  # Alias for clarity
+            "accountNumber": account_number,  # Display number
+            "accountHash": account_hash,  # Use this for API calls (orders, transactions)
             "accountType": sec_account.get("type"),
             "positions": positions,
             "currentBalances": sec_account.get("currentBalances", {}),

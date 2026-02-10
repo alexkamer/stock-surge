@@ -226,7 +226,7 @@ async def get_portfolio_analytics(
             for account in schwab_data["accounts"]:
                 # Try to get closed positions data from orders endpoint
                 # Orders endpoint might be available even if transactions isn't
-                account_hash = account.get("accountNumber")
+                account_hash = account.get("accountHash")
 
                 if account_hash and period in ["1d", "1w", "1mo"]:
                     try:

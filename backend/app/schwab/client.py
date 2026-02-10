@@ -224,6 +224,21 @@ class SchwabClient:
         response = self._make_request("GET", endpoint, params=params)
         return response
 
+    def get_account_numbers(self) -> List[Dict[str, Any]]:
+        """
+        Get account numbers with hash values for API calls
+
+        Returns:
+            List of account dictionaries with accountNumber and hashValue
+            Example: [{"accountNumber": "12345678", "hashValue": "3A87C467..."}]
+
+        Raises:
+            SchwabAPIError: If API call fails
+        """
+        endpoint = "/trader/v1/accounts/accountNumbers"
+        response = self._make_request("GET", endpoint)
+        return response if isinstance(response, list) else []
+
     def get_accounts(self, include_positions: bool = False) -> List[Dict[str, Any]]:
         """
         Get all linked Schwab accounts

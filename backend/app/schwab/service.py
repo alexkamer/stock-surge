@@ -281,6 +281,61 @@ def get_schwab_accounts() -> Dict[str, Any]:
     return {"accounts": processed_accounts, "cached": False}
 
 
+def get_schwab_transactions(account_hash: str, start_date: str, end_date: str) -> Dict[str, Any]:
+    """
+    Get transaction history for an account with realized gains/losses
+
+    Args:
+        account_hash: Encrypted account number
+        start_date: Start date (YYYY-MM-DD)
+        end_date: End date (YYYY-MM-DD)
+
+    Returns:
+        Dictionary with transactions and summary
+    """
+    cache_key = f"schwab:transactions:{account_hash}:{start_date}:{end_date}"
+    cached = get_cached_data(cache_key)
+    if cached:
+        return {"transactions": cached, "cached": True}
+
+    client = get_schwab_client()
+    transactions = client.get_transactions(account_hash, start_date, end_date)
+
+    # Process transactions to calculate realized gains
+    realized_gains = []
+    for txn in transactions:
+        if txn.get("type") == "TRADE":
+            transaction_item = txn.get("transactionItem", {})
+            instrument = transaction_item.get("instrument", {})
+
+            # Look for realized gains in transaction
+            if "cost" in transaction_item and "price" in transaction_item:
+                cost = transaction_item.get("cost", 0)
+                amount = transaction_item.get("amount", 0)
+                # Realized P/L = amount received - cost basis
+                if cost != 0:
+                    realized_pl = amount - abs(cost)
+                    realized_gains.append({
+                        "symbol": instrument.get("symbol"),
+                        "date": txn.get("transactionDate"),
+                        "realized_pl": realized_pl,
+                        "description": instrument.get("description"),
+                    })
+
+    set_cached_data(cache_key, {
+        "transactions": transactions,
+        "realized_gains": realized_gains,
+        "total_realized_pl": sum(g["realized_pl"] for g in realized_gains)
+    }, ttl=CACHE_TTL_MEDIUM)
+
+    return {
+        "transactions": transactions,
+        "realized_gains": realized_gains,
+        "total_realized_pl": sum(g["realized_pl"] for g in realized_gains),
+        "cached": False
+    }
+
+
 def get_schwab_account_positions(account_hash: str) -> Dict[str, Any]:
     """
     Get positions for a specific Schwab account

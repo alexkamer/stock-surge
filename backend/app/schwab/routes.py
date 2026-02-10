@@ -9,7 +9,7 @@ from typing import List
 from loguru import logger
 
 from .schemas import SchwabQuoteResponse, SchwabQuotesResponse, SchwabPriceHistoryResponse
-from .service import get_schwab_quote, get_schwab_quotes, get_schwab_price_history, get_schwab_accounts, get_schwab_account_positions
+from .service import get_schwab_quote, get_schwab_quotes, get_schwab_price_history, get_schwab_accounts, get_schwab_account_positions, get_schwab_transactions
 from .client import SchwabAPIError
 from .token_manager import SchwabAuthError, TokenManager
 
@@ -302,6 +302,51 @@ async def get_accounts(request: Request):
         raise HTTPException(
             status_code=500,
             detail=f"Error fetching accounts: {str(e)}"
+        )
+
+
+@router.get("/accounts/{account_hash}/transactions")
+@limiter.limit("30/minute")
+async def get_transactions(
+    request: Request,
+    account_hash: str,
+    start_date: str = Query(..., description="Start date YYYY-MM-DD"),
+    end_date: str = Query(..., description="End date YYYY-MM-DD")
+):
+    """
+    Get transaction history with realized gains/losses
+
+    Args:
+        account_hash: Encrypted account number
+        start_date: Start date for transactions
+        end_date: End date for transactions
+
+    Returns:
+        Transaction history with realized P/L calculations
+    """
+    try:
+        result = get_schwab_transactions(account_hash, start_date, end_date)
+        return result
+
+    except SchwabAuthError as e:
+        logger.error(f"Schwab auth error: {e}")
+        raise HTTPException(
+            status_code=401,
+            detail=f"Schwab authentication error: {str(e)}"
+        )
+
+    except SchwabAPIError as e:
+        logger.error(f"Schwab API error getting transactions: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Schwab API error: {str(e)}"
+        )
+
+    except Exception as e:
+        logger.error(f"Unexpected error getting transactions: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error fetching transactions: {str(e)}"
         )
 
 

@@ -15,7 +15,7 @@ from ..database import get_db
 from .. import models
 from ..auth.auth import get_current_user
 from ..stocks.service import get_stock_price, get_stock_info
-from ..schwab.service import get_schwab_accounts
+from ..schwab.service import get_schwab_accounts, get_schwab_transactions
 from ..utils.cache import get_cached_data, set_cached_data
 from ..config import CACHE_TTL_MEDIUM
 from .schemas import (
@@ -218,10 +218,28 @@ async def get_portfolio_analytics(
     # Get Schwab positions with full P/L data
     schwab_positions = []
     schwab_positions_raw = []  # Keep raw data for accurate P/L
+    total_realized_pl = 0.0  # Track realized gains from closed positions
+
     try:
         schwab_data = get_schwab_accounts()
         if schwab_data and "accounts" in schwab_data:
             for account in schwab_data["accounts"]:
+                # Fetch realized gains from transactions (last 30 days for period-relevant data)
+                account_hash = account.get("accountNumber")
+                if account_hash and period in ["1d", "1w", "1mo"]:
+                    try:
+                        from datetime import datetime, timedelta
+                        end_date = datetime.now().strftime("%Y-%m-%d")
+                        days_map = {"1d": 1, "1w": 7, "1mo": 30}
+                        days_back = days_map.get(period, 30)
+                        start_date = (datetime.now() - timedelta(days=days_back)).strftime("%Y-%m-%d")
+
+                        txn_data = get_schwab_transactions(account_hash, start_date, end_date)
+                        total_realized_pl += txn_data.get("total_realized_pl", 0)
+                        logger.info(f"Found realized P/L for period {period}: ${total_realized_pl:.2f}")
+                    except Exception as e:
+                        logger.warning(f"Could not fetch transactions for account: {e}")
+
                 if "positions" in account and account["positions"]:
                     for pos in account["positions"]:
                         schwab_positions_raw.append(pos)
@@ -363,14 +381,18 @@ async def get_portfolio_analytics(
         schwab_current_value = sum(pos.get("currentValue", 0) for pos in schwab_positions_raw)
         schwab_current_pl = sum(pos.get("longOpenProfitLoss", 0) for pos in schwab_positions_raw)
 
+        # Add realized P/L from closed positions
+        schwab_current_pl += total_realized_pl
+
         # If we have Schwab data, use it for the latest point
-        if schwab_current_value > 0:
+        if schwab_current_value > 0 or total_realized_pl != 0:
             # Keep the initial value for period P/L calculation
             if initial_portfolio_value and initial_portfolio_value > 0:
-                period_pl = schwab_current_value - initial_portfolio_value
+                # Period P/L includes both open positions change AND realized gains
+                period_pl = (schwab_current_value - initial_portfolio_value) + total_realized_pl
                 period_pl_percent = (period_pl / initial_portfolio_value * 100)
             else:
-                period_pl = 0
+                period_pl = total_realized_pl
                 period_pl_percent = 0
 
             # Update or add latest data point
@@ -379,7 +401,7 @@ async def get_portfolio_analytics(
             # Remove today's calculated point if it exists
             performance_data = [p for p in performance_data if p["date"] != latest_date]
 
-            # Add Schwab's actual data
+            # Add Schwab's actual data including realized gains
             cost_basis_schwab = schwab_current_value - schwab_current_pl
             alltime_pl_percent = (schwab_current_pl / cost_basis_schwab * 100) if cost_basis_schwab > 0 else 0.0
 
@@ -388,14 +410,14 @@ async def get_portfolio_analytics(
                 "value": round(schwab_current_value, 2),
                 "pl": round(period_pl, 2),
                 "pl_percent": round(period_pl_percent, 2),
-                "alltime_pl": round(schwab_current_pl, 2),
+                "alltime_pl": round(schwab_current_pl, 2),  # Includes unrealized + realized
                 "alltime_pl_percent": round(alltime_pl_percent, 2)
             })
 
             # Sort by date
             performance_data.sort(key=lambda x: x["date"])
 
-            logger.info(f"Updated latest data point with Schwab actual: value=${schwab_current_value:.2f}, alltime_pl=${schwab_current_pl:.2f}")
+            logger.info(f"Updated latest data point with Schwab actual: value=${schwab_current_value:.2f}, alltime_pl=${schwab_current_pl:.2f} (includes ${total_realized_pl:.2f} realized)")
 
     # Calculate sector allocation and performance using Schwab's actual values
     sector_data = {}

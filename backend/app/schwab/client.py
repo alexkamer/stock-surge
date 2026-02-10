@@ -242,6 +242,37 @@ class SchwabClient:
         response = self._make_request("GET", endpoint, params=params)
         return response if isinstance(response, list) else []
 
+    def get_transactions(
+        self,
+        account_hash: str,
+        start_date: str,
+        end_date: str,
+        types: Optional[str] = "TRADE"
+    ) -> List[Dict[str, Any]]:
+        """
+        Get transaction history for an account
+
+        Args:
+            account_hash: Encrypted account number
+            start_date: Start date in ISO format (YYYY-MM-DD)
+            end_date: End date in ISO format (YYYY-MM-DD)
+            types: Transaction types (TRADE, RECEIVE_AND_DELIVER, DIVIDEND, etc.)
+
+        Returns:
+            List of transaction dictionaries
+
+        Raises:
+            SchwabAPIError: If API call fails
+        """
+        endpoint = f"/trader/v1/accounts/{account_hash}/transactions"
+        params = {
+            "startDate": start_date,
+            "endDate": end_date,
+            "types": types
+        }
+        response = self._make_request("GET", endpoint, params=params)
+        return response if isinstance(response, list) else []
+
     def get_account_details(self, account_hash: str, include_positions: bool = True) -> Dict[str, Any]:
         """
         Get detailed information for a specific account including positions

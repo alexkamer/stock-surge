@@ -1,0 +1,232 @@
+"""
+Schwab API endpoints for real-time market data
+"""
+
+from fastapi import APIRouter, HTTPException, Request, Query
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from typing import List
+from loguru import logger
+
+from .schemas import SchwabQuoteResponse, SchwabQuotesResponse, SchwabPriceHistoryResponse
+from .service import get_schwab_quote, get_schwab_quotes, get_schwab_price_history
+from .client import SchwabAPIError
+from .token_manager import SchwabAuthError
+
+
+# Create router
+router = APIRouter(prefix="/api/schwab", tags=["schwab"])
+
+# Rate limiter
+limiter = Limiter(key_func=get_remote_address)
+
+
+@router.get("/quote/{symbol}", response_model=SchwabQuoteResponse)
+@limiter.limit("60/minute")
+async def get_quote(request: Request, symbol: str):
+    """
+    Get real-time quote for a single symbol
+
+    Args:
+        symbol: Stock ticker symbol (e.g., AAPL)
+
+    Returns:
+        Real-time quote data with bid/ask spreads
+
+    Raises:
+        404: Symbol not found
+        401: Authentication error
+        500: API error
+    """
+    symbol = symbol.upper()
+
+    try:
+        result = get_schwab_quote(symbol)
+        return {"symbol": symbol, **result}
+
+    except SchwabAuthError as e:
+        logger.error(f"Schwab auth error: {e}")
+        raise HTTPException(
+            status_code=401,
+            detail=f"Schwab authentication error: {str(e)}"
+        )
+
+    except SchwabAPIError as e:
+        error_msg = str(e).lower()
+
+        # Handle specific error cases
+        if "not found" in error_msg or "404" in error_msg:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Symbol {symbol} not found"
+            )
+        elif "rate limit" in error_msg or "429" in error_msg:
+            raise HTTPException(
+                status_code=429,
+                detail="Rate limit exceeded. Please try again later.",
+                headers={"Retry-After": "60"}
+            )
+        else:
+            logger.error(f"Schwab API error for {symbol}: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Schwab API error: {str(e)}"
+            )
+
+    except Exception as e:
+        logger.error(f"Unexpected error fetching quote for {symbol}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error fetching quote: {str(e)}"
+        )
+
+
+@router.get("/quotes", response_model=SchwabQuotesResponse)
+@limiter.limit("60/minute")
+async def get_quotes_batch(
+    request: Request,
+    symbols: str = Query(..., description="Comma-separated list of symbols (e.g., AAPL,MSFT,GOOGL)")
+):
+    """
+    Get real-time quotes for multiple symbols in a single request
+
+    Args:
+        symbols: Comma-separated ticker symbols (e.g., "AAPL,MSFT,GOOGL")
+
+    Returns:
+        Dictionary of quotes keyed by symbol
+
+    Raises:
+        400: Invalid symbols parameter
+        401: Authentication error
+        500: API error
+    """
+    # Parse symbols from comma-separated string
+    if not symbols:
+        raise HTTPException(
+            status_code=400,
+            detail="symbols parameter is required"
+        )
+
+    symbol_list = [s.strip().upper() for s in symbols.split(",") if s.strip()]
+
+    if not symbol_list:
+        raise HTTPException(
+            status_code=400,
+            detail="At least one symbol is required"
+        )
+
+    # Limit to 50 symbols per request
+    if len(symbol_list) > 50:
+        raise HTTPException(
+            status_code=400,
+            detail="Maximum 50 symbols per request"
+        )
+
+    try:
+        result = get_schwab_quotes(symbol_list)
+        return {"quotes": result["data"], "cached": result["cached"]}
+
+    except SchwabAuthError as e:
+        logger.error(f"Schwab auth error: {e}")
+        raise HTTPException(
+            status_code=401,
+            detail=f"Schwab authentication error: {str(e)}"
+        )
+
+    except SchwabAPIError as e:
+        error_msg = str(e).lower()
+
+        if "rate limit" in error_msg or "429" in error_msg:
+            raise HTTPException(
+                status_code=429,
+                detail="Rate limit exceeded. Please try again later.",
+                headers={"Retry-After": "60"}
+            )
+        else:
+            logger.error(f"Schwab API error for batch quotes: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Schwab API error: {str(e)}"
+            )
+
+    except Exception as e:
+        logger.error(f"Unexpected error fetching batch quotes: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error fetching quotes: {str(e)}"
+        )
+
+
+@router.get("/history/{symbol}", response_model=SchwabPriceHistoryResponse)
+@limiter.limit("60/minute")
+async def get_price_history(
+    request: Request,
+    symbol: str,
+    period: str = Query(default="1mo", description="Time period (1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max)"),
+    interval: str = Query(default="1d", description="Data interval (1m, 5m, 15m, 30m, 1h, 1d, 1wk, 1mo)")
+):
+    """
+    Get historical price data for a symbol
+
+    Args:
+        symbol: Stock ticker symbol
+        period: Time period (1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max)
+        interval: Data interval (1m, 5m, 15m, 30m, 1h, 1d, 1wk, 1mo)
+
+    Returns:
+        Historical OHLCV data
+
+    Raises:
+        400: Invalid period or interval
+        404: Symbol not found
+        401: Authentication error
+        500: API error
+    """
+    symbol = symbol.upper()
+
+    try:
+        result = get_schwab_price_history(symbol, period, interval)
+        return {"symbol": symbol, **result}
+
+    except ValueError as e:
+        # Invalid period or interval
+        raise HTTPException(
+            status_code=400,
+            detail=str(e)
+        )
+
+    except SchwabAuthError as e:
+        logger.error(f"Schwab auth error: {e}")
+        raise HTTPException(
+            status_code=401,
+            detail=f"Schwab authentication error: {str(e)}"
+        )
+
+    except SchwabAPIError as e:
+        error_msg = str(e).lower()
+
+        if "not found" in error_msg or "404" in error_msg:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Symbol {symbol} not found"
+            )
+        elif "rate limit" in error_msg or "429" in error_msg:
+            raise HTTPException(
+                status_code=429,
+                detail="Rate limit exceeded. Please try again later.",
+                headers={"Retry-After": "60"}
+            )
+        else:
+            logger.error(f"Schwab API error for {symbol} history: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Schwab API error: {str(e)}"
+            )
+
+    except Exception as e:
+        logger.error(f"Unexpected error fetching history for {symbol}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error fetching price history: {str(e)}"
+        )

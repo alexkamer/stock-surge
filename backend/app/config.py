@@ -64,3 +64,19 @@ ARTICLE_SCRAPER_TIMEOUT = int(os.getenv("ARTICLE_SCRAPER_TIMEOUT", "15"))
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:3b")
 OLLAMA_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "60"))
+
+# Schwab API Configuration
+SCHWAB_APP_KEY = os.getenv("SCHWAB_APP_KEY")
+SCHWAB_APP_SECRET = os.getenv("SCHWAB_APP_SECRET")
+SCHWAB_API_BASE_URL = "https://api.schwabapi.com"
+SCHWAB_TOKEN_ENDPOINT = f"{SCHWAB_API_BASE_URL}/v1/oauth/token"
+SCHWAB_AUTH_ENDPOINT = f"{SCHWAB_API_BASE_URL}/v1/oauth/authorize"
+SCHWAB_REDIRECT_URI = os.getenv("SCHWAB_REDIRECT_URI", "https://127.0.0.1")
+
+# Token refresh settings
+SCHWAB_TOKEN_REFRESH_BUFFER = 300  # Refresh if < 5 minutes remaining
+SCHWAB_TOKEN_EXPIRY = 1800  # 30 minutes
+
+# Development mode - use tokens.json
+SCHWAB_DEV_MODE = os.getenv("SCHWAB_DEV_MODE", "true").lower() == "true"
+SCHWAB_TOKEN_FILE = PROJECT_ROOT / "tokens.json"

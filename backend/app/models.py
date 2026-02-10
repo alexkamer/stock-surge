@@ -63,3 +63,16 @@ class ChatMessage(Base):
     content = Column(String, nullable=False)
     context_data = Column(JSON, default={})  # Store stock data, comparisons, etc.
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class SchwabToken(Base):
+    __tablename__ = "schwab_tokens"
+
+    user_id = Column(SQLUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    access_token = Column(String, nullable=False)
+    refresh_token = Column(String, nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    token_type = Column(String, default="Bearer")
+    scope = Column(String, default="api")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

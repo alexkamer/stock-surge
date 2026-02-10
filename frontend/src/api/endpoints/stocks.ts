@@ -166,8 +166,16 @@ export interface ArticleContent {
 
 export const stockApi = {
   getPrice: async (ticker: string) => {
-    const response = await apiClient.get(`/stock/${ticker}/price`);
-    return response.data.data; // Unwrap the nested data
+    // Try Schwab API first (real-time, professional-grade data)
+    try {
+      const response = await apiClient.get(`/api/schwab/quote/${ticker}`);
+      return response.data.data; // Unwrap the nested data
+    } catch (error) {
+      // Fallback to yfinance if Schwab fails
+      console.log(`Schwab API failed for ${ticker}, falling back to yfinance`);
+      const response = await apiClient.get(`/stock/${ticker}/price`);
+      return response.data.data;
+    }
   },
 
   getInfo: async (ticker: string) => {
@@ -176,10 +184,20 @@ export const stockApi = {
   },
 
   getHistory: async (ticker: string, period: string = "1mo", interval: string = "1d") => {
-    const response = await apiClient.get(`/stock/${ticker}/history`, {
-      params: { period, interval },
-    });
-    return response.data.data; // Unwrap the nested data
+    // Try Schwab API first for historical data
+    try {
+      const response = await apiClient.get(`/api/schwab/history/${ticker}`, {
+        params: { period, interval },
+      });
+      return response.data.data; // Unwrap the nested data
+    } catch (error) {
+      // Fallback to yfinance if Schwab fails
+      console.log(`Schwab API failed for ${ticker} history, falling back to yfinance`);
+      const response = await apiClient.get(`/stock/${ticker}/history`, {
+        params: { period, interval },
+      });
+      return response.data.data;
+    }
   },
 
   getNews: async (ticker: string, count: number = 10) => {
@@ -244,5 +262,29 @@ export const stockApi = {
       params: { url },
     });
     return response.data;
+  },
+
+  // Schwab-specific: Batch quote fetching (much faster than individual calls)
+  getBatchQuotes: async (tickers: string[]) => {
+    try {
+      const response = await apiClient.get(`/api/schwab/quotes`, {
+        params: { symbols: tickers.join(',') },
+      });
+      return response.data.quotes; // Returns object keyed by ticker
+    } catch (error) {
+      console.log('Schwab batch quotes failed, falling back to individual calls');
+      // Fallback: fetch individually
+      const quotes: Record<string, any> = {};
+      await Promise.all(
+        tickers.map(async (ticker) => {
+          try {
+            quotes[ticker] = await stockApi.getPrice(ticker);
+          } catch (err) {
+            console.error(`Failed to fetch ${ticker}:`, err);
+          }
+        })
+      );
+      return quotes;
+    }
   },
 };

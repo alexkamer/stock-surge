@@ -22,6 +22,7 @@ from .market.routes import router as market_router
 from .reddit.routes import router as reddit_router
 from .ai.routes import router as ai_router
 from .chat.routes import router as chat_router
+from .schwab.routes import router as schwab_router
 from .ws.handlers import websocket_live_prices
 
 # Configure yfinance for optimal performance
@@ -75,6 +76,7 @@ app.include_router(market_router)
 app.include_router(reddit_router)
 app.include_router(ai_router)
 app.include_router(chat_router)
+app.include_router(schwab_router)
 
 # WebSocket endpoint
 @app.websocket("/ws/live/{tickers}")
@@ -95,6 +97,7 @@ async def root():
             "auth": "/auth (register, login, refresh, me)",
             "users": "/user (watchlist, preferences)",
             "stocks": "/stock/{ticker} (price, info, history, dividends, financials, etc.)",
+            "schwab": "/api/schwab (real-time quotes, batch quotes, price history)",
             "market": "/market, /sector, /industry",
             "chat": "/chat (sessions, messages, streaming AI responses)",
             "websocket": "/ws/live/{tickers}",

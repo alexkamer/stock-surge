@@ -1,9 +1,167 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Send, Plus, MessageSquare, TrendingUp, Trash2 } from "lucide-react";
+import { Send, Plus, MessageSquare, TrendingUp, Trash2, Copy, Check, Search, Download } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { chatApi } from "../api/endpoints/chat";
 import type { ChatMessage as ChatMessageType } from "../api/endpoints/chat";
+import { detectTickers, detectUrls, detectComparison } from "../lib/tickerParser";
+import { TickerCard } from "../components/chat/TickerCard";
+import { ArticleSummaryCard } from "../components/chat/ArticleSummaryCard";
+import { StockComparison } from "../components/chat/StockComparison";
+import { InlinePriceChart } from "../components/chat/InlinePriceChart";
+import { MessageActions } from "../components/chat/MessageActions";
+import { ChatSearch } from "../components/chat/ChatSearch";
+import { ExportChatModal } from "../components/modals/ExportChatModal";
+import { useChatKeyboardShortcuts } from "../hooks/useChatKeyboardShortcuts";
+
+// Component to render message with enhanced features
+const EnhancedMessageContent: React.FC<{
+  content: string;
+  role: "user" | "assistant";
+}> = ({ content, role }) => {
+  // Only process assistant messages for enhancements
+  if (role === "user") {
+    return <p className="text-sm whitespace-pre-wrap">{content}</p>;
+  }
+
+  // Detect URLs for article summarization
+  const urls = detectUrls(content);
+
+  // Detect tickers
+  const tickers = detectTickers(content);
+
+  // Detect comparison intent
+  const comparisonTickers = detectComparison(content);
+
+  // Detect if user is asking for charts
+  const wantsChart = /\b(chart|graph|plot|trend|visual|show me)\b/i.test(content);
+
+  return (
+    <div className="space-y-4">
+      {/* Show comparison if detected */}
+      {comparisonTickers && comparisonTickers.length >= 2 && (
+        <StockComparison tickers={comparisonTickers} period="1mo" />
+      )}
+
+      {/* Render markdown content */}
+      <ReactMarkdown
+        components={{
+          h1: ({ children }) => (
+            <h1 className="text-xl font-bold text-text-primary mb-3">{children}</h1>
+          ),
+          h2: ({ children }) => (
+            <h2 className="text-lg font-bold text-text-primary mb-2">{children}</h2>
+          ),
+          h3: ({ children }) => (
+            <h3 className="text-base font-semibold text-text-primary mb-2">{children}</h3>
+          ),
+          p: ({ children }) => (
+            <p className="text-sm text-text-primary mb-3 leading-relaxed">{children}</p>
+          ),
+          ul: ({ children }) => (
+            <ul className="text-sm text-text-primary mb-3 list-disc list-inside space-y-1">
+              {children}
+            </ul>
+          ),
+          ol: ({ children }) => (
+            <ol className="text-sm text-text-primary mb-3 list-decimal list-inside space-y-1">
+              {children}
+            </ol>
+          ),
+          li: ({ children }) => <li className="text-sm text-text-primary">{children}</li>,
+          code: ({ inline, children }: any) => (
+            <CodeBlock inline={inline}>{children}</CodeBlock>
+          ),
+          a: ({ children, href }) => (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-positive hover:underline"
+            >
+              {children}
+            </a>
+          ),
+          blockquote: ({ children }) => (
+            <blockquote className="border-l-4 border-positive pl-4 italic text-text-secondary mb-3">
+              {children}
+            </blockquote>
+          ),
+          strong: ({ children }) => (
+            <strong className="font-semibold text-text-primary">{children}</strong>
+          ),
+          em: ({ children }) => <em className="italic text-text-primary">{children}</em>,
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+
+      {/* Show ticker cards for mentioned tickers (limit to 5) */}
+      {tickers.length > 0 && !comparisonTickers && (
+        <>
+          <div className="flex flex-wrap gap-3">
+            {tickers.slice(0, 5).map((match) => (
+              <TickerCard key={match.ticker} ticker={match.ticker} compact />
+            ))}
+          </div>
+
+          {/* Show chart if user asked for it or if few tickers (better visual) */}
+          {(wantsChart || tickers.length <= 3) && (
+            <div className="space-y-3">
+              {tickers.slice(0, 3).map((match) => (
+                <InlinePriceChart key={match.ticker} ticker={match.ticker} period="1mo" height={250} />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Show article summaries for detected URLs */}
+      {urls.length > 0 &&
+        urls.slice(0, 2).map((url) => <ArticleSummaryCard key={url} url={url} />)}
+    </div>
+  );
+};
+
+// Code block component with copy functionality
+const CodeBlock: React.FC<{ children: React.ReactNode; inline?: boolean }> = ({ children, inline }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    const text = String(children).replace(/\n$/, "");
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  if (inline) {
+    return (
+      <code className="bg-background px-1.5 py-0.5 rounded text-xs font-mono text-positive">
+        {children}
+      </code>
+    );
+  }
+
+  return (
+    <div className="relative group mb-3">
+      <code className="block bg-background p-3 rounded text-xs font-mono overflow-x-auto">
+        {children}
+      </code>
+      <button
+        onClick={handleCopy}
+        className="absolute top-2 right-2 p-1.5 rounded bg-slate-700 hover:bg-slate-600 opacity-0 group-hover:opacity-100 transition-opacity"
+        aria-label="Copy code"
+        title="Copy code"
+      >
+        {copied ? (
+          <Check size={14} className="text-green-400" />
+        ) : (
+          <Copy size={14} className="text-slate-300" />
+        )}
+      </button>
+    </div>
+  );
+};
 
 export const Chat: React.FC = () => {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
@@ -12,7 +170,10 @@ export const Chat: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
   const [isAnonymousMode, setIsAnonymousMode] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const streamRef = useRef<EventSource | null>(null);
   const queryClient = useQueryClient();
 
@@ -89,6 +250,14 @@ export const Chat: React.FC = () => {
   const handleNewChat = () => {
     createSessionMutation.mutate(undefined);
   };
+
+  // Keyboard shortcuts
+  useChatKeyboardShortcuts({
+    onNewChat: handleNewChat,
+    onSearch: () => setIsSearchOpen(true),
+    onExport: () => setIsExportModalOpen(true),
+    onFocusInput: () => inputRef.current?.focus(),
+  });
 
   const handleSendMessage = async () => {
     if (!input.trim() || isLoading) return;
@@ -300,6 +469,32 @@ export const Chat: React.FC = () => {
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col">
+        {/* Toolbar */}
+        <div className="border-b border-border bg-surface px-6 py-3 flex items-center justify-between">
+          <div className="text-sm text-text-secondary">
+            {messages.length > 0 && `${messages.length} messages`}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsSearchOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-background rounded transition-colors"
+              title="Search (Cmd/Ctrl+K)"
+            >
+              <Search size={14} />
+              Search
+            </button>
+            <button
+              onClick={() => setIsExportModalOpen(true)}
+              disabled={messages.length === 0}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-background rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Export (Cmd/Ctrl+E)"
+            >
+              <Download size={14} />
+              Export
+            </button>
+          </div>
+        </div>
+
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-6">
           <div className="max-w-3xl mx-auto space-y-6">
@@ -322,99 +517,16 @@ export const Chat: React.FC = () => {
                 className={message.role === "user" ? "flex justify-end" : "w-full"}
               >
                 {message.role === "user" ? (
-                  <div className="max-w-[80%] rounded-lg p-4 bg-positive text-background">
-                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  <div className="max-w-[80%] rounded-lg p-4 bg-positive text-background relative group">
+                    <EnhancedMessageContent content={message.content} role="user" />
+                    <MessageActions content={message.content} isAssistantMessage={false} />
                   </div>
                 ) : (
-                  <div className="w-full py-6 px-4 bg-surface/30">
+                  <div className="w-full py-6 px-4 bg-surface/30 relative group">
                     <div className="max-w-3xl mx-auto prose prose-invert prose-sm max-w-none">
-                      <ReactMarkdown
-                        components={{
-                          // Style headings
-                          h1: ({ children }) => (
-                            <h1 className="text-xl font-bold text-text-primary mb-3">
-                              {children}
-                            </h1>
-                          ),
-                          h2: ({ children }) => (
-                            <h2 className="text-lg font-bold text-text-primary mb-2">
-                              {children}
-                            </h2>
-                          ),
-                          h3: ({ children }) => (
-                            <h3 className="text-base font-semibold text-text-primary mb-2">
-                              {children}
-                            </h3>
-                          ),
-                          // Style paragraphs
-                          p: ({ children }) => (
-                            <p className="text-sm text-text-primary mb-3 leading-relaxed">
-                              {children}
-                            </p>
-                          ),
-                          // Style lists
-                          ul: ({ children }) => (
-                            <ul className="text-sm text-text-primary mb-3 list-disc list-inside space-y-1">
-                              {children}
-                            </ul>
-                          ),
-                          ol: ({ children }) => (
-                            <ol className="text-sm text-text-primary mb-3 list-decimal list-inside space-y-1">
-                              {children}
-                            </ol>
-                          ),
-                          li: ({ children }) => (
-                            <li className="text-sm text-text-primary">{children}</li>
-                          ),
-                          // Style code blocks
-                          code: ({ inline, children, ...props }: any) =>
-                            inline ? (
-                              <code
-                                className="bg-background px-1.5 py-0.5 rounded text-xs font-mono text-positive"
-                                {...props}
-                              >
-                                {children}
-                              </code>
-                            ) : (
-                              <code
-                                className="block bg-background p-3 rounded text-xs font-mono overflow-x-auto mb-3"
-                                {...props}
-                              >
-                                {children}
-                              </code>
-                            ),
-                          // Style links
-                          a: ({ children, href }) => (
-                            <a
-                              href={href}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-positive hover:underline"
-                            >
-                              {children}
-                            </a>
-                          ),
-                          // Style blockquotes
-                          blockquote: ({ children }) => (
-                            <blockquote className="border-l-4 border-positive pl-4 italic text-text-secondary mb-3">
-                              {children}
-                            </blockquote>
-                          ),
-                          // Style strong/bold
-                          strong: ({ children }) => (
-                            <strong className="font-semibold text-text-primary">
-                              {children}
-                            </strong>
-                          ),
-                          // Style emphasis/italic
-                          em: ({ children }) => (
-                            <em className="italic text-text-primary">{children}</em>
-                          ),
-                        }}
-                      >
-                        {message.content}
-                      </ReactMarkdown>
+                      <EnhancedMessageContent content={message.content} role="assistant" />
                     </div>
+                    <MessageActions content={message.content} isAssistantMessage={true} />
                   </div>
                 )}
               </div>
@@ -424,84 +536,7 @@ export const Chat: React.FC = () => {
             {isLoading && streamingContent && (
               <div className="w-full py-6 px-4 bg-surface/30">
                 <div className="max-w-3xl mx-auto prose prose-invert prose-sm max-w-none">
-                  <ReactMarkdown
-                    components={{
-                      h1: ({ children }) => (
-                        <h1 className="text-xl font-bold text-text-primary mb-3">
-                          {children}
-                        </h1>
-                      ),
-                      h2: ({ children }) => (
-                        <h2 className="text-lg font-bold text-text-primary mb-2">
-                          {children}
-                        </h2>
-                      ),
-                      h3: ({ children }) => (
-                        <h3 className="text-base font-semibold text-text-primary mb-2">
-                          {children}
-                        </h3>
-                      ),
-                      p: ({ children }) => (
-                        <p className="text-sm text-text-primary mb-3 leading-relaxed">
-                          {children}
-                        </p>
-                      ),
-                      ul: ({ children }) => (
-                        <ul className="text-sm text-text-primary mb-3 list-disc list-inside space-y-1">
-                          {children}
-                        </ul>
-                      ),
-                      ol: ({ children }) => (
-                        <ol className="text-sm text-text-primary mb-3 list-decimal list-inside space-y-1">
-                          {children}
-                        </ol>
-                      ),
-                      li: ({ children }) => (
-                        <li className="text-sm text-text-primary">{children}</li>
-                      ),
-                      code: ({ inline, children, ...props }: any) =>
-                        inline ? (
-                          <code
-                            className="bg-background px-1.5 py-0.5 rounded text-xs font-mono text-positive"
-                            {...props}
-                          >
-                            {children}
-                          </code>
-                        ) : (
-                          <code
-                            className="block bg-background p-3 rounded text-xs font-mono overflow-x-auto mb-3"
-                            {...props}
-                          >
-                            {children}
-                          </code>
-                        ),
-                      a: ({ children, href }) => (
-                        <a
-                          href={href}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-positive hover:underline"
-                        >
-                          {children}
-                        </a>
-                      ),
-                      blockquote: ({ children }) => (
-                        <blockquote className="border-l-4 border-positive pl-4 italic text-text-secondary mb-3">
-                          {children}
-                        </blockquote>
-                      ),
-                      strong: ({ children }) => (
-                        <strong className="font-semibold text-text-primary">
-                          {children}
-                        </strong>
-                      ),
-                      em: ({ children }) => (
-                        <em className="italic text-text-primary">{children}</em>
-                      ),
-                    }}
-                  >
-                    {streamingContent}
-                  </ReactMarkdown>
+                  <EnhancedMessageContent content={streamingContent} role="assistant" />
                 </div>
               </div>
             )}
@@ -564,6 +599,7 @@ export const Chat: React.FC = () => {
             <div className="flex gap-3">
               <div className="flex-1 relative">
                 <textarea
+                  ref={inputRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyPress}
@@ -588,6 +624,21 @@ export const Chat: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Search Modal */}
+      <ChatSearch
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        messages={messages}
+      />
+
+      {/* Export Modal */}
+      <ExportChatModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        messages={messages.filter((m) => m.role !== "system") as any}
+        sessionTitle={currentSession?.title || undefined}
+      />
     </div>
   );
 };

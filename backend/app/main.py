@@ -17,12 +17,14 @@ from .database import init_db
 # Import routers from modules
 from .auth.routes import router as auth_router
 from .users.routes import router as users_router
+from .users.schwab_routes import router as user_schwab_router
 from .stocks.routes import router as stocks_router
 from .market.routes import router as market_router
 from .reddit.routes import router as reddit_router
 from .ai.routes import router as ai_router
 from .chat.routes import router as chat_router
 from .schwab.routes import router as schwab_router
+from .portfolio.routes import router as portfolio_router
 from .ws.handlers import websocket_live_prices
 
 # Configure yfinance for optimal performance
@@ -71,12 +73,14 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 # Include routers
 app.include_router(auth_router)
 app.include_router(users_router)
+app.include_router(user_schwab_router)
 app.include_router(stocks_router)
 app.include_router(market_router)
 app.include_router(reddit_router)
 app.include_router(ai_router)
 app.include_router(chat_router)
 app.include_router(schwab_router)
+app.include_router(portfolio_router)
 
 # WebSocket endpoint
 @app.websocket("/ws/live/{tickers}")

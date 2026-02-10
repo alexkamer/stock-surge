@@ -5,7 +5,7 @@ import { stockApi } from "../../api/endpoints/stocks";
 import { useDebounce } from "../../hooks/useDebounce";
 import { useWatchlistStore } from "../../store/watchlistStore";
 import { formatPercentNoSign } from "../../lib/formatters";
-import { ChevronDown, ChevronRight, MessageSquare } from "lucide-react";
+import { ChevronDown, ChevronRight, MessageSquare, Briefcase, Settings as SettingsIcon } from "lucide-react";
 
 const POPULAR_SECTORS = [
   { key: "technology", name: "Technology" },
@@ -216,6 +216,24 @@ export const Header: React.FC = () => {
             >
               <MessageSquare className="w-4 h-4" />
               Chat
+            </button>
+
+            {/* Portfolio Link */}
+            <button
+              onClick={() => navigate("/portfolio")}
+              className="flex items-center gap-2 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors py-2"
+            >
+              <Briefcase className="w-4 h-4" />
+              Portfolio
+            </button>
+
+            {/* Settings Link */}
+            <button
+              onClick={() => navigate("/settings")}
+              className="flex items-center gap-2 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors py-2"
+            >
+              <SettingsIcon className="w-4 h-4" />
+              Settings
             </button>
           </div>
 

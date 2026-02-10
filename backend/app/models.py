@@ -76,3 +76,17 @@ class SchwabToken(Base):
     scope = Column(String, default="api")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class Portfolio(Base):
+    __tablename__ = "portfolio"
+
+    id = Column(SQLUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(SQLUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    ticker = Column(String(10), nullable=False)
+    quantity = Column(Integer, nullable=False)  # Number of shares
+    purchase_price = Column(Integer, nullable=False)  # Price in cents (e.g., 27349 = $273.49)
+    purchase_date = Column(DateTime(timezone=True), nullable=False)
+    notes = Column(String(500), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

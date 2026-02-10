@@ -9,13 +9,15 @@ export const apiClient = axios.create({
   },
 });
 
-// Token management
-let accessToken: string | null = null;
-let refreshToken: string | null = null;
+// Token management with localStorage persistence
+let accessToken: string | null = localStorage.getItem("access_token");
+let refreshToken: string | null = localStorage.getItem("refresh_token");
 
 export const setTokens = (access: string, refresh: string) => {
   accessToken = access;
   refreshToken = refresh;
+  localStorage.setItem("access_token", access);
+  localStorage.setItem("refresh_token", refresh);
 };
 
 export const getAccessToken = () => accessToken;
@@ -24,6 +26,8 @@ export const getRefreshToken = () => refreshToken;
 export const clearTokens = () => {
   accessToken = null;
   refreshToken = null;
+  localStorage.removeItem("access_token");
+  localStorage.removeItem("refresh_token");
 };
 
 // Request interceptor - add auth token

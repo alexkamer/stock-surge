@@ -224,6 +224,43 @@ class SchwabClient:
         response = self._make_request("GET", endpoint, params=params)
         return response
 
+    def get_accounts(self, include_positions: bool = False) -> List[Dict[str, Any]]:
+        """
+        Get all linked Schwab accounts
+
+        Args:
+            include_positions: Whether to include position details for all accounts
+
+        Returns:
+            List of account dictionaries with account numbers and types
+
+        Raises:
+            SchwabAPIError: If API call fails
+        """
+        endpoint = "/trader/v1/accounts"
+        params = {"fields": "positions"} if include_positions else {}
+        response = self._make_request("GET", endpoint, params=params)
+        return response if isinstance(response, list) else []
+
+    def get_account_details(self, account_hash: str, include_positions: bool = True) -> Dict[str, Any]:
+        """
+        Get detailed information for a specific account including positions
+
+        Args:
+            account_hash: Encrypted account number
+            include_positions: Whether to include position details
+
+        Returns:
+            Account details with positions
+
+        Raises:
+            SchwabAPIError: If API call fails
+        """
+        endpoint = f"/trader/v1/accounts/{account_hash}"
+        params = {"fields": "positions"} if include_positions else {}
+        response = self._make_request("GET", endpoint, params=params)
+        return response
+
     def close(self):
         """Close HTTP client and cleanup resources"""
         if self._client:

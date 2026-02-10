@@ -9,9 +9,9 @@ from typing import List
 from loguru import logger
 
 from .schemas import SchwabQuoteResponse, SchwabQuotesResponse, SchwabPriceHistoryResponse
-from .service import get_schwab_quote, get_schwab_quotes, get_schwab_price_history
+from .service import get_schwab_quote, get_schwab_quotes, get_schwab_price_history, get_schwab_accounts, get_schwab_account_positions
 from .client import SchwabAPIError
-from .token_manager import SchwabAuthError
+from .token_manager import SchwabAuthError, TokenManager
 
 
 # Create router
@@ -19,6 +19,40 @@ router = APIRouter(prefix="/api/schwab", tags=["schwab"])
 
 # Rate limiter
 limiter = Limiter(key_func=get_remote_address)
+
+
+@router.get("/status")
+@limiter.limit("60/minute")
+async def get_schwab_status(request: Request):
+    """
+    Check Schwab API connection status
+
+    Returns:
+        Connection status and token expiry info
+    """
+    try:
+        from ..config import SCHWAB_APP_KEY, SCHWAB_APP_SECRET, SCHWAB_DEV_MODE, SCHWAB_TOKEN_FILE
+
+        token_manager = TokenManager(
+            app_key=SCHWAB_APP_KEY,
+            app_secret=SCHWAB_APP_SECRET,
+            token_file=SCHWAB_TOKEN_FILE,
+            dev_mode=SCHWAB_DEV_MODE
+        )
+
+        # Try to get a valid token to verify connection
+        token = token_manager.get_valid_token()
+
+        return {
+            "connected": True,
+            "dev_mode": SCHWAB_DEV_MODE,
+        }
+    except Exception as e:
+        logger.error(f"Schwab status check failed: {e}")
+        return {
+            "connected": False,
+            "error": str(e)
+        }
 
 
 @router.get("/quote/{symbol}", response_model=SchwabQuoteResponse)
@@ -229,4 +263,94 @@ async def get_price_history(
         raise HTTPException(
             status_code=500,
             detail=f"Error fetching price history: {str(e)}"
+        )
+
+
+@router.get("/accounts")
+@limiter.limit("30/minute")
+async def get_accounts(request: Request):
+    """
+    Get all linked Schwab accounts
+
+    Returns:
+        List of accounts with basic information
+
+    Raises:
+        401: Authentication error
+        500: API error
+    """
+    try:
+        result = get_schwab_accounts()
+        return result
+
+    except SchwabAuthError as e:
+        logger.error(f"Schwab auth error: {e}")
+        raise HTTPException(
+            status_code=401,
+            detail=f"Schwab authentication error: {str(e)}"
+        )
+
+    except SchwabAPIError as e:
+        logger.error(f"Schwab API error getting accounts: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Schwab API error: {str(e)}"
+        )
+
+    except Exception as e:
+        logger.error(f"Unexpected error getting accounts: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error fetching accounts: {str(e)}"
+        )
+
+
+@router.get("/accounts/{account_hash}/positions")
+@limiter.limit("30/minute")
+async def get_account_positions(request: Request, account_hash: str):
+    """
+    Get positions for a specific Schwab account
+
+    Args:
+        account_hash: Encrypted account number
+
+    Returns:
+        Account details with positions
+
+    Raises:
+        404: Account not found
+        401: Authentication error
+        500: API error
+    """
+    try:
+        result = get_schwab_account_positions(account_hash)
+        return result
+
+    except SchwabAuthError as e:
+        logger.error(f"Schwab auth error: {e}")
+        raise HTTPException(
+            status_code=401,
+            detail=f"Schwab authentication error: {str(e)}"
+        )
+
+    except SchwabAPIError as e:
+        error_msg = str(e).lower()
+
+        if "not found" in error_msg or "404" in error_msg:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Account {account_hash} not found"
+            )
+        else:
+            logger.error(f"Schwab API error for account {account_hash}: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Schwab API error: {str(e)}"
+            )
+
+    except Exception as e:
+        logger.error(f"Unexpected error getting positions for {account_hash}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error fetching account positions: {str(e)}"
         )

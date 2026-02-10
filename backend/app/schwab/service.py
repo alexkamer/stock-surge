@@ -225,3 +225,95 @@ def _normalize_price_history(
         "count": len(history_data),
         "data": history_data
     }
+
+
+def get_schwab_accounts() -> Dict[str, Any]:
+    """
+    Get all linked Schwab accounts with positions
+
+    Returns:
+        Dictionary with accounts list including positions
+        Format: {"accounts": [...], "cached": bool}
+
+    Raises:
+        SchwabAPIError: If API call fails
+    """
+    cache_key = "schwab:accounts:with_positions"
+    cached = get_cached_data(cache_key)
+    if cached:
+        logger.info("Schwab accounts cache hit")
+        return {"accounts": cached, "cached": True}
+
+    client = get_schwab_client()
+    accounts = client.get_accounts(include_positions=True)
+
+    # Process and flatten positions from each account
+    processed_accounts = []
+    for account in accounts:
+        sec_account = account.get("securitiesAccount", {})
+        positions = []
+
+        if "positions" in sec_account:
+            for pos in sec_account["positions"]:
+                instrument = pos.get("instrument", {})
+                positions.append({
+                    "symbol": instrument.get("symbol"),
+                    "quantity": pos.get("longQuantity", 0) - pos.get("shortQuantity", 0),
+                    "averagePrice": pos.get("averagePrice", 0),
+                    "currentValue": pos.get("marketValue", 0),
+                    "instrument_type": instrument.get("assetType"),
+                    "cusip": instrument.get("cusip"),
+                })
+
+        processed_accounts.append({
+            "accountNumber": sec_account.get("accountNumber"),
+            "accountType": sec_account.get("type"),
+            "positions": positions,
+            "currentBalances": sec_account.get("currentBalances", {}),
+        })
+
+    set_cached_data(cache_key, processed_accounts, ttl=CACHE_TTL_SHORT)
+    return {"accounts": processed_accounts, "cached": False}
+
+
+def get_schwab_account_positions(account_hash: str) -> Dict[str, Any]:
+    """
+    Get positions for a specific Schwab account
+
+    Args:
+        account_hash: Encrypted account number
+
+    Returns:
+        Dictionary with account details and positions
+        Format: {"account": {...}, "positions": [...], "cached": bool}
+
+    Raises:
+        SchwabAPIError: If API call fails
+    """
+    cache_key = f"schwab:account:{account_hash}:positions"
+    cached = get_cached_data(cache_key)
+    if cached:
+        logger.info(f"Schwab account {account_hash} positions cache hit")
+        return {"account": cached.get("account"), "positions": cached.get("positions"), "cached": True}
+
+    client = get_schwab_client()
+    account_data = client.get_account_details(account_hash, include_positions=True)
+
+    # Extract positions from account data
+    positions = []
+    if "securitiesAccount" in account_data:
+        sec_account = account_data["securitiesAccount"]
+        if "positions" in sec_account:
+            for pos in sec_account["positions"]:
+                instrument = pos.get("instrument", {})
+                positions.append({
+                    "symbol": instrument.get("symbol"),
+                    "quantity": pos.get("longQuantity", 0) + pos.get("shortQuantity", 0),
+                    "averagePrice": pos.get("averagePrice", 0),
+                    "currentValue": pos.get("marketValue", 0),
+                    "instrument_type": instrument.get("assetType"),
+                })
+
+    result = {"account": account_data, "positions": positions}
+    set_cached_data(cache_key, result, ttl=CACHE_TTL_SHORT)
+    return {**result, "cached": False}

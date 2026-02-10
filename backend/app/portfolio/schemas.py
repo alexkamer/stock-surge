@@ -56,3 +56,40 @@ class PortfolioSummary(BaseModel):
     total_day_change: float
     total_day_change_percent: float
     positions: List[PortfolioPositionWithMetrics]
+
+
+class PerformanceDataPoint(BaseModel):
+    """Single data point in portfolio performance history"""
+    date: str
+    value: float
+    pl: float
+    pl_percent: float
+
+
+class PerformanceResponse(BaseModel):
+    """Portfolio performance over time"""
+    period: str
+    data: List[PerformanceDataPoint]
+
+
+class SectorAllocation(BaseModel):
+    """Sector allocation data"""
+    sector: str
+    value: float
+    percent: float
+
+
+class PositionPerformance(BaseModel):
+    """Individual position performance"""
+    ticker: str
+    pl: float
+    pl_percent: float
+    current_value: float
+
+
+class AnalyticsResponse(BaseModel):
+    """Complete portfolio analytics"""
+    performance: PerformanceResponse
+    sector_allocation: List[SectorAllocation]
+    top_performers: List[PositionPerformance]
+    bottom_performers: List[PositionPerformance]

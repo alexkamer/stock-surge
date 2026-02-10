@@ -4,19 +4,26 @@ from fastapi import APIRouter, HTTPException, Request, Depends
 from sqlalchemy.orm import Session
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List
+import yfinance as yf
 
 from ..database import get_db
 from .. import models
 from ..auth.auth import get_current_user
-from ..stocks.service import get_stock_price
+from ..stocks.service import get_stock_price, get_stock_info
+from ..schwab.service import get_schwab_accounts
 from .schemas import (
     PortfolioPositionCreate,
     PortfolioPositionUpdate,
     PortfolioPosition,
     PortfolioPositionWithMetrics,
-    PortfolioSummary
+    PortfolioSummary,
+    PerformanceResponse,
+    PerformanceDataPoint,
+    SectorAllocation,
+    PositionPerformance,
+    AnalyticsResponse
 )
 
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])
@@ -127,6 +134,189 @@ async def get_portfolio(
         "total_day_change": total_day_change,
         "total_day_change_percent": total_day_change_percent,
         "positions": enriched_positions
+    }
+
+
+@router.get("/analytics", response_model=AnalyticsResponse)
+@limiter.limit("30/minute")
+async def get_portfolio_analytics(
+    request: Request,
+    period: str = "1mo",
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get portfolio analytics including performance, sector allocation, and top performers"""
+    # Get manual portfolio positions
+    positions = db.query(models.Portfolio).filter(
+        models.Portfolio.user_id == current_user.id
+    ).all()
+
+    # Get Schwab positions and convert to position-like objects
+    schwab_positions = []
+    try:
+        schwab_data = get_schwab_accounts()
+        if schwab_data and "accounts" in schwab_data:
+            for account in schwab_data["accounts"]:
+                if "positions" in account and account["positions"]:
+                    for pos in account["positions"]:
+                        # Create a position-like object
+                        class SchwabPosition:
+                            def __init__(self, ticker, quantity, avg_price):
+                                self.ticker = ticker
+                                self.quantity = quantity
+                                self.purchase_price = int(avg_price * 100)  # Convert to cents
+
+                        schwab_positions.append(
+                            SchwabPosition(
+                                pos.get("symbol", ""),
+                                pos.get("quantity", 0),
+                                pos.get("averagePrice", 0)
+                            )
+                        )
+    except Exception as e:
+        # If Schwab fetch fails, just continue with manual positions
+        pass
+
+    # Combine both position types
+    all_positions = list(positions) + schwab_positions
+
+    if not all_positions:
+        return {
+            "performance": {
+                "period": period,
+                "data": []
+            },
+            "sector_allocation": [],
+            "top_performers": [],
+            "bottom_performers": []
+        }
+
+    # Map period to yfinance period and date range
+    period_map = {
+        "1d": ("1d", 1),
+        "1w": ("5d", 5),
+        "1mo": ("1mo", 30),
+        "3mo": ("3mo", 90),
+        "6mo": ("6mo", 180),
+        "1y": ("1y", 365)
+    }
+
+    yf_period, days = period_map.get(period, ("1mo", 30))
+
+    # Fetch historical data for all positions
+    ticker_history = {}
+    for pos in all_positions:
+        try:
+            stock = yf.Ticker(pos.ticker)
+            hist = stock.history(period=yf_period)
+            if not hist.empty:
+                ticker_history[pos.ticker] = hist
+        except Exception:
+            continue
+
+    # Calculate portfolio value over time
+    performance_data = []
+    if ticker_history:
+        # Get all unique dates across all positions
+        all_dates = sorted(set(
+            date for hist in ticker_history.values()
+            for date in hist.index
+        ))
+
+        for date in all_dates:
+            total_value = 0.0
+            total_cost_basis = 0.0
+
+            for pos in all_positions:
+                if pos.ticker in ticker_history:
+                    hist = ticker_history[pos.ticker]
+                    # Get price on this date or nearest previous date
+                    try:
+                        if date in hist.index:
+                            price = hist.loc[date]['Close']
+                        else:
+                            # Find nearest previous date
+                            prev_dates = hist.index[hist.index <= date]
+                            if len(prev_dates) > 0:
+                                price = hist.loc[prev_dates[-1]]['Close']
+                            else:
+                                continue
+
+                        total_value += pos.quantity * float(price)
+                        total_cost_basis += pos.quantity * (pos.purchase_price / 100)
+                    except Exception:
+                        continue
+
+            if total_cost_basis > 0:
+                pl = total_value - total_cost_basis
+                pl_percent = (pl / total_cost_basis * 100)
+
+                performance_data.append({
+                    "date": date.strftime("%Y-%m-%d"),
+                    "value": round(total_value, 2),
+                    "pl": round(pl, 2),
+                    "pl_percent": round(pl_percent, 2)
+                })
+
+    # Calculate sector allocation
+    sector_data = {}
+    position_performance = []
+
+    for pos in all_positions:
+        try:
+            # Get current price and sector info
+            price_data = get_stock_price(pos.ticker)
+            info_data = get_stock_info(pos.ticker)
+
+            current_price = price_data["data"]["last_price"]
+            current_value = pos.quantity * current_price
+            cost_basis = pos.quantity * (pos.purchase_price / 100)
+            pl = current_value - cost_basis
+            pl_percent = (pl / cost_basis * 100) if cost_basis > 0 else 0.0
+
+            # Store position performance
+            position_performance.append({
+                "ticker": pos.ticker,
+                "pl": pl,
+                "pl_percent": pl_percent,
+                "current_value": current_value
+            })
+
+            # Aggregate by sector
+            sector = info_data["data"].get("sector", "Unknown")
+            if sector:
+                if sector not in sector_data:
+                    sector_data[sector] = 0.0
+                sector_data[sector] += current_value
+
+        except Exception:
+            continue
+
+    # Calculate sector percentages
+    total_portfolio_value = sum(sector_data.values())
+    sector_allocation = [
+        {
+            "sector": sector,
+            "value": round(value, 2),
+            "percent": round((value / total_portfolio_value * 100) if total_portfolio_value > 0 else 0.0, 2)
+        }
+        for sector, value in sector_data.items()
+    ]
+    sector_allocation.sort(key=lambda x: x["value"], reverse=True)
+
+    # Sort performers
+    position_performance.sort(key=lambda x: x["pl"], reverse=True)
+    top_performers = position_performance[:5]
+    bottom_performers = sorted(position_performance, key=lambda x: x["pl"])[:5]
+
+    return {
+        "performance": {
+            "period": period,
+            "data": performance_data
+        },
+        "sector_allocation": sector_allocation,
+        "top_performers": top_performers,
+        "bottom_performers": bottom_performers
     }
 
 

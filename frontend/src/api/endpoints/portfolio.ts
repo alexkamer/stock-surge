@@ -48,6 +48,38 @@ export interface UpdatePositionRequest {
   notes?: string;
 }
 
+export interface PerformanceDataPoint {
+  date: string;
+  value: number;
+  pl: number;
+  pl_percent: number;
+}
+
+export interface PerformanceResponse {
+  period: string;
+  data: PerformanceDataPoint[];
+}
+
+export interface SectorAllocation {
+  sector: string;
+  value: number;
+  percent: number;
+}
+
+export interface PositionPerformance {
+  ticker: string;
+  pl: number;
+  pl_percent: number;
+  current_value: number;
+}
+
+export interface AnalyticsResponse {
+  performance: PerformanceResponse;
+  sector_allocation: SectorAllocation[];
+  top_performers: PositionPerformance[];
+  bottom_performers: PositionPerformance[];
+}
+
 export const portfolioApi = {
   getPortfolio: async (): Promise<PortfolioSummary> => {
     const response = await apiClient.get("/portfolio/");
@@ -69,6 +101,11 @@ export const portfolioApi = {
 
   deletePosition: async (positionId: string): Promise<{ message: string; ticker: string }> => {
     const response = await apiClient.delete(`/portfolio/${positionId}`);
+    return response.data;
+  },
+
+  getAnalytics: async (period: string = "1mo"): Promise<AnalyticsResponse> => {
+    const response = await apiClient.get(`/portfolio/analytics?period=${period}`);
     return response.data;
   },
 };

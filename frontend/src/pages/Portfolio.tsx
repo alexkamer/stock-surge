@@ -2,14 +2,16 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { portfolioApi, type PortfolioPositionWithMetrics } from "../api/endpoints/portfolio";
 import { apiClient } from "../api/client";
-import { Plus, TrendingUp, TrendingDown, DollarSign, Pencil, Trash2, Link2 } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, DollarSign, Pencil, Trash2, Link2, BarChart3, List } from "lucide-react";
 import AddPositionModal from "../components/portfolio/AddPositionModal";
 import EditPositionModal from "../components/portfolio/EditPositionModal";
+import PortfolioAnalytics from "../components/portfolio/PortfolioAnalytics";
 
 export default function Portfolio() {
   const queryClient = useQueryClient();
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingPosition, setEditingPosition] = useState<PortfolioPositionWithMetrics | null>(null);
+  const [activeTab, setActiveTab] = useState<"positions" | "analytics">("positions");
 
   const { data: portfolio, isLoading, error } = useQuery({
     queryKey: ["portfolio"],
@@ -90,8 +92,40 @@ export default function Portfolio() {
         </button>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+      {/* Tabs */}
+      <div className="flex gap-4 mb-8 border-b border-gray-700">
+        <button
+          onClick={() => setActiveTab("positions")}
+          className={`flex items-center gap-2 px-4 py-3 transition-colors ${
+            activeTab === "positions"
+              ? "text-blue-400 border-b-2 border-blue-400"
+              : "text-gray-400 hover:text-gray-300"
+          }`}
+        >
+          <List className="w-5 h-5" />
+          Positions
+        </button>
+        <button
+          onClick={() => setActiveTab("analytics")}
+          className={`flex items-center gap-2 px-4 py-3 transition-colors ${
+            activeTab === "analytics"
+              ? "text-blue-400 border-b-2 border-blue-400"
+              : "text-gray-400 hover:text-gray-300"
+          }`}
+        >
+          <BarChart3 className="w-5 h-5" />
+          Analytics
+        </button>
+      </div>
+
+      {/* Analytics Tab */}
+      {activeTab === "analytics" && <PortfolioAnalytics />}
+
+      {/* Positions Tab */}
+      {activeTab === "positions" && (
+        <>
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
         {/* Total Value */}
         <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
           <div className="flex items-center gap-2 text-gray-400 text-sm mb-2">
@@ -254,7 +288,6 @@ export default function Portfolio() {
         </div>
       )}
 
-      {/* Modals */}
       {/* Schwab Portfolio Section */}
       {schwabPortfolio?.accounts && schwabPortfolio.accounts.length > 0 && (
         <div className="mt-12">
@@ -361,7 +394,10 @@ export default function Portfolio() {
           })}
         </div>
       )}
+        </>
+      )}
 
+      {/* Modals */}
       {showAddModal && (
         <AddPositionModal
           onClose={() => setShowAddModal(false)}

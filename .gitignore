@@ -39,3 +39,4 @@ frontend/.env.production
 
 # Lock files
 uv.lock
+backend/venv/

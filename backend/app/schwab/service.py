@@ -286,6 +286,82 @@ def get_schwab_accounts() -> Dict[str, Any]:
     return {"accounts": processed_accounts, "cached": False}
 
 
+def get_schwab_orders(account_hash: str, from_date: str, to_date: str) -> Dict[str, Any]:
+    """
+    Get filled orders for an account and calculate realized gains
+
+    Args:
+        account_hash: Encrypted account number
+        from_date: From date (YYYY-MM-DD)
+        to_date: To date (YYYY-MM-DD)
+
+    Returns:
+        Dictionary with orders and realized P/L summary
+    """
+    cache_key = f"schwab:orders:{account_hash}:{from_date}:{to_date}"
+    cached = get_cached_data(cache_key)
+    if cached:
+        return {**cached, "cached": True}
+
+    client = get_schwab_client()
+    orders = client.get_orders(account_hash, from_date, to_date, status="FILLED")
+
+    # Process orders to calculate realized gains from sells
+    realized_gains = []
+    total_realized_pl = 0.0
+
+    for order in orders:
+        order_type = order.get("orderType")
+        status = order.get("status")
+
+        # Only look at filled orders
+        if status != "FILLED":
+            continue
+
+        # Look at order legs (actual trades)
+        order_legs = order.get("orderLegCollection", [])
+
+        for leg in order_legs:
+            instruction = leg.get("instruction", "")  # BUY, SELL, etc
+            instrument = leg.get("instrument", {})
+            symbol = instrument.get("symbol", "")
+
+            # Only track sells (realized gains/losses)
+            if "SELL" in instruction.upper():
+                quantity = leg.get("quantity", 0)
+
+                # Get execution details
+                order_activity = order.get("orderActivityCollection", [])
+                if order_activity:
+                    execution = order_activity[0].get("executionLegs", [])
+                    if execution:
+                        price = execution[0].get("price", 0)
+
+                        # Schwab doesn't give us cost basis in orders
+                        # We can only track the sale proceeds
+                        # Realized P/L would need cost basis which requires transactions API
+                        sale_proceeds = quantity * price
+
+                        realized_gains.append({
+                            "symbol": symbol,
+                            "date": order.get("enteredTime"),
+                            "quantity": quantity,
+                            "sale_price": price,
+                            "sale_proceeds": sale_proceeds,
+                            "instruction": instruction
+                        })
+
+    result = {
+        "orders": orders,
+        "sells": realized_gains,
+        "sell_count": len(realized_gains),
+        "note": "Orders endpoint provides sale data but not cost basis for P/L calculation"
+    }
+
+    set_cached_data(cache_key, result, ttl=CACHE_TTL_MEDIUM)
+    return {**result, "cached": False}
+
+
 def get_schwab_transactions(account_hash: str, start_date: str, end_date: str) -> Dict[str, Any]:
     """
     Get transaction history for an account with realized gains/losses

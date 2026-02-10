@@ -242,6 +242,49 @@ class SchwabClient:
         response = self._make_request("GET", endpoint, params=params)
         return response if isinstance(response, list) else []
 
+    def get_orders(
+        self,
+        account_hash: str,
+        from_date: str,
+        to_date: str,
+        status: str = "FILLED"
+    ) -> List[Dict[str, Any]]:
+        """
+        Get orders for an account
+
+        Args:
+            account_hash: Encrypted account number
+            from_date: From date in ISO format (YYYY-MM-DD)
+            to_date: To date in ISO format (YYYY-MM-DD)
+            status: Order status filter (FILLED, CANCELED, REJECTED, etc.)
+
+        Returns:
+            List of order dictionaries
+
+        Raises:
+            SchwabAPIError: If API call fails
+        """
+        from datetime import datetime
+
+        # Parse and format dates
+        from_dt = datetime.strptime(from_date, "%Y-%m-%d")
+        to_dt = datetime.strptime(to_date, "%Y-%m-%d")
+
+        # Format as ISO 8601 with timezone
+        from_iso = from_dt.strftime("%Y-%m-%dT00:00:00.000Z")
+        to_iso = to_dt.strftime("%Y-%m-%dT23:59:59.999Z")
+
+        endpoint = f"/trader/v1/accounts/{account_hash}/orders"
+        params = {
+            "fromEnteredTime": from_iso,
+            "toEnteredTime": to_iso,
+            "status": status
+        }
+
+        logger.info(f"Fetching orders: {from_iso} to {to_iso}, status={status}")
+        response = self._make_request("GET", endpoint, params=params)
+        return response if isinstance(response, list) else []
+
     def get_transactions(
         self,
         account_hash: str,

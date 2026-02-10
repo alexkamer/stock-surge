@@ -9,7 +9,7 @@ from typing import List
 from loguru import logger
 
 from .schemas import SchwabQuoteResponse, SchwabQuotesResponse, SchwabPriceHistoryResponse
-from .service import get_schwab_quote, get_schwab_quotes, get_schwab_price_history, get_schwab_accounts, get_schwab_account_positions, get_schwab_transactions
+from .service import get_schwab_quote, get_schwab_quotes, get_schwab_price_history, get_schwab_accounts, get_schwab_account_positions, get_schwab_transactions, get_schwab_orders
 from .client import SchwabAPIError
 from .token_manager import SchwabAuthError, TokenManager
 
@@ -302,6 +302,51 @@ async def get_accounts(request: Request):
         raise HTTPException(
             status_code=500,
             detail=f"Error fetching accounts: {str(e)}"
+        )
+
+
+@router.get("/accounts/{account_hash}/orders")
+@limiter.limit("30/minute")
+async def get_orders(
+    request: Request,
+    account_hash: str,
+    from_date: str = Query(..., description="From date YYYY-MM-DD"),
+    to_date: str = Query(..., description="To date YYYY-MM-DD")
+):
+    """
+    Get filled orders for an account
+
+    Args:
+        account_hash: Encrypted account number
+        from_date: From date for orders
+        to_date: To date for orders
+
+    Returns:
+        Order history with sell information
+    """
+    try:
+        result = get_schwab_orders(account_hash, from_date, to_date)
+        return result
+
+    except SchwabAuthError as e:
+        logger.error(f"Schwab auth error: {e}")
+        raise HTTPException(
+            status_code=401,
+            detail=f"Schwab authentication error: {str(e)}"
+        )
+
+    except SchwabAPIError as e:
+        logger.error(f"Schwab API error getting orders: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Schwab API error: {str(e)}"
+        )
+
+    except Exception as e:
+        logger.error(f"Unexpected error getting orders: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error fetching orders: {str(e)}"
         )
 
 

@@ -15,7 +15,7 @@ from ..database import get_db
 from .. import models
 from ..auth.auth import get_current_user
 from ..stocks.service import get_stock_price, get_stock_info
-from ..schwab.service import get_schwab_accounts, get_schwab_transactions
+from ..schwab.service import get_schwab_accounts, get_schwab_transactions, get_schwab_orders
 from ..utils.cache import get_cached_data, set_cached_data
 from ..config import CACHE_TTL_MEDIUM
 from .schemas import (
@@ -224,24 +224,41 @@ async def get_portfolio_analytics(
         schwab_data = get_schwab_accounts()
         if schwab_data and "accounts" in schwab_data:
             for account in schwab_data["accounts"]:
-                # NOTE: Schwab transactions API disabled
-                # The transactions endpoint returns "Invalid account number" errors
-                # This appears to be an API tier/permissions limitation
-                # For now, analytics only include open positions (current holdings)
-                # Closed positions (sold stocks) are not reflected in P/L
+                # Try to get closed positions data from orders endpoint
+                # Orders endpoint might be available even if transactions isn't
+                account_hash = account.get("accountNumber")
 
-                # TODO: If Schwab transactions access becomes available:
-                # - Uncomment the code below
-                # - Verify account identifier format
-                # - Test with proper API credentials
+                if account_hash and period in ["1d", "1w", "1mo"]:
+                    try:
+                        from datetime import datetime, timedelta
+                        end_date = datetime.now().strftime("%Y-%m-%d")
+                        days_map = {"1d": 1, "1w": 7, "1mo": 30}
+                        days_back = days_map.get(period, 30)
+                        start_date = (datetime.now() - timedelta(days=days_back)).strftime("%Y-%m-%d")
 
-                # account_hash = account.get("accountNumber")
-                # if account_hash and period in ["1d", "1w", "1mo"]:
-                #     try:
-                #         txn_data = get_schwab_transactions(account_hash, start_date, end_date)
-                #         total_realized_pl += txn_data.get("total_realized_pl", 0)
-                #     except Exception as e:
-                #         logger.debug(f"Transactions unavailable: {e}")
+                        # Try orders endpoint first (more likely to be available)
+                        try:
+                            orders_data = get_schwab_orders(account_hash, start_date, end_date)
+                            sell_count = orders_data.get("sell_count", 0)
+
+                            if sell_count > 0:
+                                logger.info(f"Found {sell_count} sell orders in period (cost basis unavailable from orders API)")
+                                # Note: Orders don't include cost basis, so we can't calculate realized P/L
+                                # But we can at least log that sells occurred
+
+                        except Exception as e:
+                            logger.debug(f"Orders endpoint unavailable: {e}")
+
+                            # Fallback to transactions (unlikely to work)
+                            try:
+                                txn_data = get_schwab_transactions(account_hash, start_date, end_date)
+                                total_realized_pl += txn_data.get("total_realized_pl", 0)
+                                logger.info(f"✓ Included ${total_realized_pl:.2f} realized P/L from transactions")
+                            except Exception as te:
+                                logger.debug(f"Transactions endpoint also unavailable: {te}")
+
+                    except Exception as e:
+                        logger.debug(f"Could not fetch closed positions data: {e}")
 
                 if "positions" in account and account["positions"]:
                     for pos in account["positions"]:

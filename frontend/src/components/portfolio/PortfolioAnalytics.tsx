@@ -193,9 +193,9 @@ export default function PortfolioAnalytics() {
           <div>
             <h2 className="text-2xl font-bold text-white mb-1">Portfolio Analytics</h2>
             <p className="text-gray-400 text-sm">Track your portfolio performance over time</p>
-            <div className="mt-2 px-3 py-1.5 bg-yellow-500/10 border border-yellow-500/20 rounded-lg inline-block">
-              <p className="text-xs text-yellow-200">
-                <span className="font-semibold">Note:</span> Historical P/L uses market data and may differ from your broker's reported values due to calculation methods, timing, and wash sales.
+            <div className="mt-2 px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-lg inline-block">
+              <p className="text-xs text-blue-200">
+                <span className="font-semibold">✓ Schwab Data:</span> Current values and P/L use your broker's actual reported figures for accuracy.
               </p>
             </div>
           </div>

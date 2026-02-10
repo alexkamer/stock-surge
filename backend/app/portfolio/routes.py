@@ -205,25 +205,28 @@ async def get_portfolio_analytics(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get portfolio analytics including performance, sector allocation, and top performers
+    """Get portfolio analytics with Schwab's actual reported values
 
-    NOTE: For Schwab accounts, day-to-day P/L uses Schwab's reported values.
-    Historical trends use yfinance data which may not perfectly match Schwab's calculations.
+    Uses Schwab's reported P/L for current values and sector allocation.
+    Historical trends still use market data for visualization.
     """
     # Get manual portfolio positions
     positions = db.query(models.Portfolio).filter(
         models.Portfolio.user_id == current_user.id
     ).all()
 
-    # Get Schwab positions and convert to position-like objects
+    # Get Schwab positions with full P/L data
     schwab_positions = []
+    schwab_positions_raw = []  # Keep raw data for accurate P/L
     try:
         schwab_data = get_schwab_accounts()
         if schwab_data and "accounts" in schwab_data:
             for account in schwab_data["accounts"]:
                 if "positions" in account and account["positions"]:
                     for pos in account["positions"]:
-                        # Create a position-like object
+                        schwab_positions_raw.append(pos)
+
+                        # Create a position-like object for historical data
                         class SchwabPosition:
                             def __init__(self, ticker, quantity, avg_price):
                                 self.ticker = ticker
@@ -238,7 +241,7 @@ async def get_portfolio_analytics(
                             )
                         )
     except Exception as e:
-        # If Schwab fetch fails, just continue with manual positions
+        logger.error(f"Error fetching Schwab data for analytics: {e}")
         pass
 
     # Combine both position types
@@ -354,10 +357,82 @@ async def get_portfolio_analytics(
 
         logger.info(f"Analytics period={period}: Generated {len(performance_data)} data points. Latest value=${total_value:.2f}, Period P/L=${period_pl:.2f}")
 
-    # Calculate sector allocation (parallel processing)
-    def fetch_position_metrics(pos):
+    # Override the latest data point with Schwab's actual current values
+    if schwab_positions_raw and performance_data:
+        # Calculate actual current totals from Schwab
+        schwab_current_value = sum(pos.get("currentValue", 0) for pos in schwab_positions_raw)
+        schwab_current_pl = sum(pos.get("longOpenProfitLoss", 0) for pos in schwab_positions_raw)
+
+        # If we have Schwab data, use it for the latest point
+        if schwab_current_value > 0:
+            # Keep the initial value for period P/L calculation
+            if initial_portfolio_value and initial_portfolio_value > 0:
+                period_pl = schwab_current_value - initial_portfolio_value
+                period_pl_percent = (period_pl / initial_portfolio_value * 100)
+            else:
+                period_pl = 0
+                period_pl_percent = 0
+
+            # Update or add latest data point
+            latest_date = datetime.now().strftime("%Y-%m-%d")
+
+            # Remove today's calculated point if it exists
+            performance_data = [p for p in performance_data if p["date"] != latest_date]
+
+            # Add Schwab's actual data
+            cost_basis_schwab = schwab_current_value - schwab_current_pl
+            alltime_pl_percent = (schwab_current_pl / cost_basis_schwab * 100) if cost_basis_schwab > 0 else 0.0
+
+            performance_data.append({
+                "date": latest_date,
+                "value": round(schwab_current_value, 2),
+                "pl": round(period_pl, 2),
+                "pl_percent": round(period_pl_percent, 2),
+                "alltime_pl": round(schwab_current_pl, 2),
+                "alltime_pl_percent": round(alltime_pl_percent, 2)
+            })
+
+            # Sort by date
+            performance_data.sort(key=lambda x: x["date"])
+
+            logger.info(f"Updated latest data point with Schwab actual: value=${schwab_current_value:.2f}, alltime_pl=${schwab_current_pl:.2f}")
+
+    # Calculate sector allocation and performance using Schwab's actual values
+    sector_data = {}
+    position_performance = []
+
+    # Process Schwab positions (use their actual P/L values)
+    for pos_raw in schwab_positions_raw:
+        ticker = pos_raw.get("symbol", "")
+        current_value = pos_raw.get("currentValue", 0)
+
+        # Use Schwab's actual P/L
+        pl = pos_raw.get("longOpenProfitLoss", 0)
+        cost_basis = current_value - pl
+        pl_percent = (pl / cost_basis * 100) if cost_basis > 0 else 0.0
+
+        # Get sector info
         try:
-            # Get current price and sector info (these are already cached internally)
+            info_data = get_stock_info(ticker)
+            sector = info_data["data"].get("sector", "Unknown")
+        except Exception:
+            sector = "Unknown"
+
+        position_performance.append({
+            "ticker": ticker,
+            "pl": pl,
+            "pl_percent": pl_percent,
+            "current_value": current_value
+        })
+
+        if sector:
+            if sector not in sector_data:
+                sector_data[sector] = 0.0
+            sector_data[sector] += current_value
+
+    # Process manual positions (calculate P/L)
+    def fetch_manual_position_metrics(pos):
+        try:
             price_data = get_stock_price(pos.ticker)
             info_data = get_stock_info(pos.ticker)
 
@@ -366,7 +441,6 @@ async def get_portfolio_analytics(
             cost_basis = pos.quantity * (pos.purchase_price / 100)
             pl = current_value - cost_basis
             pl_percent = (pl / cost_basis * 100) if cost_basis > 0 else 0.0
-
             sector = info_data["data"].get("sector", "Unknown")
 
             return {
@@ -379,27 +453,25 @@ async def get_portfolio_analytics(
         except Exception:
             return None
 
-    sector_data = {}
-    position_performance = []
+    # Only process manual positions
+    if positions:
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = [executor.submit(fetch_manual_position_metrics, pos) for pos in positions]
+            for future in futures:
+                result = future.result()
+                if result:
+                    position_performance.append({
+                        "ticker": result["ticker"],
+                        "pl": result["pl"],
+                        "pl_percent": result["pl_percent"],
+                        "current_value": result["current_value"]
+                    })
 
-    # Parallel fetch position metrics
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = [executor.submit(fetch_position_metrics, pos) for pos in all_positions]
-        for future in futures:
-            result = future.result()
-            if result:
-                position_performance.append({
-                    "ticker": result["ticker"],
-                    "pl": result["pl"],
-                    "pl_percent": result["pl_percent"],
-                    "current_value": result["current_value"]
-                })
-
-                sector = result["sector"]
-                if sector:
-                    if sector not in sector_data:
-                        sector_data[sector] = 0.0
-                    sector_data[sector] += result["current_value"]
+                    sector = result["sector"]
+                    if sector:
+                        if sector not in sector_data:
+                            sector_data[sector] = 0.0
+                        sector_data[sector] += result["current_value"]
 
     # Calculate sector percentages
     total_portfolio_value = sum(sector_data.values())

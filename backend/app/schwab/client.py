@@ -264,12 +264,26 @@ class SchwabClient:
         Raises:
             SchwabAPIError: If API call fails
         """
+        # Convert YYYY-MM-DD to ISO 8601 format with timezone
+        # Schwab expects: YYYY-MM-DDTHH:MM:SS.SSSZ
+        from datetime import datetime
+
+        # Parse and format dates
+        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+        end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+
+        # Format as ISO 8601 with timezone
+        start_iso = start_dt.strftime("%Y-%m-%dT00:00:00.000Z")
+        end_iso = end_dt.strftime("%Y-%m-%dT23:59:59.999Z")
+
         endpoint = f"/trader/v1/accounts/{account_hash}/transactions"
         params = {
-            "startDate": start_date,
-            "endDate": end_date,
+            "startDate": start_iso,
+            "endDate": end_iso,
             "types": types
         }
+
+        logger.info(f"Fetching transactions: {start_iso} to {end_iso}")
         response = self._make_request("GET", endpoint, params=params)
         return response if isinstance(response, list) else []
 

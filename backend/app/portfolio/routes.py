@@ -224,32 +224,24 @@ async def get_portfolio_analytics(
         schwab_data = get_schwab_accounts()
         if schwab_data and "accounts" in schwab_data:
             for account in schwab_data["accounts"]:
-                # Try to fetch realized gains from transactions
-                # Note: Transactions API may not be available for all Schwab accounts
-                account_hash = account.get("accountNumber") or account.get("accountHash")
+                # NOTE: Schwab transactions API disabled
+                # The transactions endpoint returns "Invalid account number" errors
+                # This appears to be an API tier/permissions limitation
+                # For now, analytics only include open positions (current holdings)
+                # Closed positions (sold stocks) are not reflected in P/L
 
-                # Only fetch transactions for short periods where realized gains matter
-                if account_hash and period in ["1d", "1w", "1mo"]:
-                    try:
-                        from datetime import datetime, timedelta
-                        end_date = datetime.now().strftime("%Y-%m-%d")
-                        days_map = {"1d": 1, "1w": 7, "1mo": 30}
-                        days_back = days_map.get(period, 30)
-                        start_date = (datetime.now() - timedelta(days=days_back)).strftime("%Y-%m-%d")
+                # TODO: If Schwab transactions access becomes available:
+                # - Uncomment the code below
+                # - Verify account identifier format
+                # - Test with proper API credentials
 
-                        txn_data = get_schwab_transactions(account_hash, start_date, end_date)
-                        realized_pl = txn_data.get("total_realized_pl", 0)
-
-                        if realized_pl != 0:
-                            total_realized_pl += realized_pl
-                            logger.info(f"✓ Included ${realized_pl:.2f} realized P/L from closed positions")
-                        else:
-                            logger.info(f"No closed positions found in period {period}")
-
-                    except Exception as e:
-                        # Transactions API might not be available - this is OK
-                        # Analytics will still work with open positions only
-                        logger.debug(f"Transactions not available (closed positions won't be included): {e}")
+                # account_hash = account.get("accountNumber")
+                # if account_hash and period in ["1d", "1w", "1mo"]:
+                #     try:
+                #         txn_data = get_schwab_transactions(account_hash, start_date, end_date)
+                #         total_realized_pl += txn_data.get("total_realized_pl", 0)
+                #     except Exception as e:
+                #         logger.debug(f"Transactions unavailable: {e}")
 
                 if "positions" in account and account["positions"]:
                     for pos in account["positions"]:

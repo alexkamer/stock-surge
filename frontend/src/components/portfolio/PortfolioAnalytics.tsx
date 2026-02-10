@@ -193,10 +193,17 @@ export default function PortfolioAnalytics() {
           <div>
             <h2 className="text-2xl font-bold text-white mb-1">Portfolio Analytics</h2>
             <p className="text-gray-400 text-sm">Track your portfolio performance over time</p>
-            <div className="mt-2 px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-lg inline-block">
-              <p className="text-xs text-blue-200">
-                <span className="font-semibold">✓ Schwab Data:</span> Current values and P/L use your broker's actual reported figures. Closed positions may not be included if transactions API is unavailable.
-              </p>
+            <div className="mt-2 space-y-1.5">
+              <div className="px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-lg inline-block">
+                <p className="text-xs text-blue-200">
+                  <span className="font-semibold">✓ Live Data:</span> Current positions use Schwab's actual reported values
+                </p>
+              </div>
+              <div className="px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg inline-block">
+                <p className="text-xs text-amber-200">
+                  <span className="font-semibold">Note:</span> P/L reflects open positions only. Sold stocks not included due to API limitations.
+                </p>
+              </div>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">

@@ -9,6 +9,7 @@ from typing import List
 import yfinance as yf
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+from loguru import logger
 
 from ..database import get_db
 from .. import models
@@ -272,6 +273,7 @@ async def get_portfolio_analytics(
             # Set initial value on first date for period-relative P/L
             if initial_portfolio_value is None and total_value > 0:
                 initial_portfolio_value = total_value
+                logger.info(f"Analytics period={period}: Initial portfolio value = ${initial_portfolio_value:.2f}")
 
             if initial_portfolio_value and initial_portfolio_value > 0:
                 # P/L relative to start of period (shows gains/losses during this timeframe)
@@ -290,6 +292,8 @@ async def get_portfolio_analytics(
                     "alltime_pl": round(alltime_pl, 2),  # All-time P/L (vs purchase price)
                     "alltime_pl_percent": round(alltime_pl_percent, 2)
                 })
+
+        logger.info(f"Analytics period={period}: Generated {len(performance_data)} data points. Latest value=${total_value:.2f}, Period P/L=${period_pl:.2f}")
 
     # Calculate sector allocation (parallel processing)
     def fetch_position_metrics(pos):
@@ -469,3 +473,66 @@ async def delete_position(
     db.commit()
 
     return {"message": "Position deleted", "ticker": ticker}
+
+
+@router.get("/analytics/debug")
+@limiter.limit("30/minute")
+async def debug_portfolio_analytics(
+    request: Request,
+    period: str = "1mo",
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Debug endpoint to see detailed analytics calculations"""
+    # Get manual portfolio positions
+    positions = db.query(models.Portfolio).filter(
+        models.Portfolio.user_id == current_user.id
+    ).all()
+
+    # Get Schwab positions
+    schwab_positions = []
+    schwab_raw = []
+    try:
+        schwab_data = get_schwab_accounts()
+        if schwab_data and "accounts" in schwab_data:
+            for account in schwab_data["accounts"]:
+                if "positions" in account and account["positions"]:
+                    for pos in account["positions"]:
+                        schwab_raw.append({
+                            "symbol": pos.get("symbol"),
+                            "quantity": pos.get("quantity"),
+                            "averagePrice": pos.get("averagePrice"),
+                            "currentValue": pos.get("currentValue")
+                        })
+                        class SchwabPosition:
+                            def __init__(self, ticker, quantity, avg_price):
+                                self.ticker = ticker
+                                self.quantity = quantity
+                                self.purchase_price = int(avg_price * 100)
+                        schwab_positions.append(
+                            SchwabPosition(
+                                pos.get("symbol", ""),
+                                pos.get("quantity", 0),
+                                pos.get("averagePrice", 0)
+                            )
+                        )
+    except Exception as e:
+        pass
+
+    all_positions = list(positions) + schwab_positions
+
+    return {
+        "period": period,
+        "manual_positions_count": len(positions),
+        "schwab_positions_count": len(schwab_positions),
+        "schwab_raw_data": schwab_raw,
+        "total_positions": len(all_positions),
+        "position_details": [
+            {
+                "ticker": pos.ticker,
+                "quantity": pos.quantity,
+                "purchase_price_dollars": pos.purchase_price / 100
+            }
+            for pos in all_positions
+        ]
+    }

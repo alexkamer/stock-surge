@@ -7,12 +7,16 @@ from slowapi.util import get_remote_address
 from datetime import datetime, timedelta
 from typing import List
 import yfinance as yf
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 from ..database import get_db
 from .. import models
 from ..auth.auth import get_current_user
 from ..stocks.service import get_stock_price, get_stock_info
 from ..schwab.service import get_schwab_accounts
+from ..utils.cache import get_cached_data, set_cached_data
+from ..config import CACHE_TTL_MEDIUM
 from .schemas import (
     PortfolioPositionCreate,
     PortfolioPositionUpdate,
@@ -203,16 +207,31 @@ async def get_portfolio_analytics(
 
     yf_period, days = period_map.get(period, ("1mo", 30))
 
-    # Fetch historical data for all positions
-    ticker_history = {}
-    for pos in all_positions:
+    # Fetch historical data for all positions (with caching and parallel processing)
+    def fetch_ticker_history(ticker: str, period: str):
+        cache_key = f"history:{ticker}:{period}"
+        cached = get_cached_data(cache_key)
+        if cached:
+            return ticker, cached
+
         try:
-            stock = yf.Ticker(pos.ticker)
-            hist = stock.history(period=yf_period)
+            stock = yf.Ticker(ticker)
+            hist = stock.history(period=period)
             if not hist.empty:
-                ticker_history[pos.ticker] = hist
+                set_cached_data(cache_key, hist, CACHE_TTL_MEDIUM)
+                return ticker, hist
         except Exception:
-            continue
+            pass
+        return ticker, None
+
+    # Use ThreadPoolExecutor for parallel fetching
+    ticker_history = {}
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(fetch_ticker_history, pos.ticker, yf_period) for pos in all_positions]
+        for future in futures:
+            ticker, hist = future.result()
+            if hist is not None:
+                ticker_history[ticker] = hist
 
     # Calculate portfolio value over time
     performance_data = []
@@ -258,13 +277,10 @@ async def get_portfolio_analytics(
                     "pl_percent": round(pl_percent, 2)
                 })
 
-    # Calculate sector allocation
-    sector_data = {}
-    position_performance = []
-
-    for pos in all_positions:
+    # Calculate sector allocation (parallel processing)
+    def fetch_position_metrics(pos):
         try:
-            # Get current price and sector info
+            # Get current price and sector info (these are already cached internally)
             price_data = get_stock_price(pos.ticker)
             info_data = get_stock_info(pos.ticker)
 
@@ -274,23 +290,39 @@ async def get_portfolio_analytics(
             pl = current_value - cost_basis
             pl_percent = (pl / cost_basis * 100) if cost_basis > 0 else 0.0
 
-            # Store position performance
-            position_performance.append({
+            sector = info_data["data"].get("sector", "Unknown")
+
+            return {
                 "ticker": pos.ticker,
                 "pl": pl,
                 "pl_percent": pl_percent,
-                "current_value": current_value
-            })
-
-            # Aggregate by sector
-            sector = info_data["data"].get("sector", "Unknown")
-            if sector:
-                if sector not in sector_data:
-                    sector_data[sector] = 0.0
-                sector_data[sector] += current_value
-
+                "current_value": current_value,
+                "sector": sector
+            }
         except Exception:
-            continue
+            return None
+
+    sector_data = {}
+    position_performance = []
+
+    # Parallel fetch position metrics
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(fetch_position_metrics, pos) for pos in all_positions]
+        for future in futures:
+            result = future.result()
+            if result:
+                position_performance.append({
+                    "ticker": result["ticker"],
+                    "pl": result["pl"],
+                    "pl_percent": result["pl_percent"],
+                    "current_value": result["current_value"]
+                })
+
+                sector = result["sector"]
+                if sector:
+                    if sector not in sector_data:
+                        sector_data[sector] = 0.0
+                    sector_data[sector] += result["current_value"]
 
     # Calculate sector percentages
     total_portfolio_value = sum(sector_data.values())

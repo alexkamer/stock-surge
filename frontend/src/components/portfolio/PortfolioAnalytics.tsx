@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { portfolioApi } from "../../api/endpoints/portfolio";
 import {
@@ -43,12 +43,25 @@ const SECTOR_COLORS = [
 
 export default function PortfolioAnalytics() {
   const [period, setPeriod] = useState("1mo");
+  const [showSlowLoadingMessage, setShowSlowLoadingMessage] = useState(false);
 
   const { data: analytics, isLoading, error } = useQuery({
     queryKey: ["portfolio-analytics", period],
     queryFn: () => portfolioApi.getAnalytics(period),
     refetchInterval: 60000,
+    staleTime: 30000, // Consider data fresh for 30 seconds
+    gcTime: 300000, // Cache for 5 minutes
   });
+
+  // Show slow loading message after 3 seconds
+  useEffect(() => {
+    if (isLoading) {
+      const timer = setTimeout(() => setShowSlowLoadingMessage(true), 3000);
+      return () => clearTimeout(timer);
+    } else {
+      setShowSlowLoadingMessage(false);
+    }
+  }, [isLoading]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -65,8 +78,44 @@ export default function PortfolioAnalytics() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-gray-400">Loading analytics...</div>
+      <div className="space-y-8 animate-pulse">
+        {/* Period Selector Skeleton */}
+        <div className="flex items-center justify-between">
+          <div className="h-8 w-48 bg-gray-700 rounded"></div>
+          <div className="flex gap-2">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="h-10 w-16 bg-gray-700 rounded-lg"></div>
+            ))}
+          </div>
+        </div>
+
+        {/* Summary Cards Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[1, 2].map((i) => (
+            <div key={i} className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+              <div className="h-4 w-32 bg-gray-700 rounded mb-2"></div>
+              <div className="h-8 w-40 bg-gray-700 rounded mb-1"></div>
+              <div className="h-4 w-24 bg-gray-700 rounded"></div>
+            </div>
+          ))}
+        </div>
+
+        {/* Chart Skeletons */}
+        {[1, 2].map((i) => (
+          <div key={i} className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+            <div className="h-6 w-48 bg-gray-700 rounded mb-4"></div>
+            <div className="h-[300px] bg-gray-700/30 rounded"></div>
+          </div>
+        ))}
+
+        <div className="text-center mt-4">
+          <div className="text-gray-400">Loading analytics data...</div>
+          {showSlowLoadingMessage && (
+            <div className="text-gray-500 text-sm mt-2">
+              This is taking longer than usual. We're fetching historical data for all your positions.
+            </div>
+          )}
+        </div>
       </div>
     );
   }

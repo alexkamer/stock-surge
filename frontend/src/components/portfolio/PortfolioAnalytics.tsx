@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { portfolioApi } from "../../api/endpoints/portfolio";
 import {
   LineChart,
@@ -42,18 +42,49 @@ const SECTOR_COLORS = [
 ];
 
 export default function PortfolioAnalytics() {
+  const queryClient = useQueryClient();
   const [period, setPeriod] = useState("1mo");
   const [showSlowLoadingMessage, setShowSlowLoadingMessage] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const chartsPerPage = 2; // Show 2 chart sections at a time
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
-  const { data: analytics, isLoading, error } = useQuery({
+  const { data: analytics, isLoading, error, isFetching } = useQuery({
     queryKey: ["portfolio-analytics", period],
     queryFn: () => portfolioApi.getAnalytics(period),
     refetchInterval: 60000,
     staleTime: 30000, // Consider data fresh for 30 seconds
     gcTime: 300000, // Cache for 5 minutes
   });
+
+  // Prefetch all other periods in the background
+  useEffect(() => {
+    const otherPeriods = PERIOD_OPTIONS.filter((opt) => opt.value !== period);
+
+    // Prefetch other periods after a short delay
+    const prefetchTimer = setTimeout(() => {
+      otherPeriods.forEach((opt) => {
+        queryClient.prefetchQuery({
+          queryKey: ["portfolio-analytics", opt.value],
+          queryFn: () => portfolioApi.getAnalytics(opt.value),
+          staleTime: 30000,
+        });
+      });
+    }, 1000); // Wait 1 second after loading current period
+
+    return () => clearTimeout(prefetchTimer);
+  }, [period, queryClient]);
+
+  // Handle period change with transition
+  const handlePeriodChange = (newPeriod: string) => {
+    if (newPeriod === period) return;
+
+    setIsTransitioning(true);
+    setPeriod(newPeriod);
+
+    // Remove transition class after animation
+    setTimeout(() => setIsTransitioning(false), 300);
+  };
 
   // Show slow loading message after 3 seconds
   useEffect(() => {
@@ -155,7 +186,7 @@ export default function PortfolioAnalytics() {
   const totalPages = chartSections.length;
 
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 transition-opacity duration-300 ${isTransitioning ? "opacity-50" : "opacity-100"}`}>
       {/* Header with Period Selector */}
       <div className="bg-gradient-to-r from-gray-800 to-gray-900 rounded-xl p-6 border border-gray-700 shadow-lg">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -167,16 +198,23 @@ export default function PortfolioAnalytics() {
             {PERIOD_OPTIONS.map((option) => (
               <button
                 key={option.value}
-                onClick={() => setPeriod(option.value)}
+                onClick={() => handlePeriodChange(option.value)}
+                disabled={isTransitioning}
                 className={`px-4 py-2 rounded-lg font-medium transition-all ${
                   period === option.value
                     ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30"
                     : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-300"
-                }`}
+                } ${isTransitioning ? "opacity-50 cursor-wait" : ""}`}
               >
                 {option.label}
               </button>
             ))}
+            {isFetching && !isLoading && (
+              <div className="flex items-center gap-2 px-3 py-2 text-sm text-gray-400">
+                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                Updating...
+              </div>
+            )}
           </div>
         </div>
       </div>
